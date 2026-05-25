@@ -5,7 +5,50 @@ const nodemailer = require("nodemailer");
 // Falls back to Gmail SMTP if not set.
 
 const sendEmail = async ({ to, subject, html, text }) => {
-  // ── Brevo HTTP API (preferred — works from all cloud providers incl. Render) ──
+  // ── Mailjet HTTP API (top priority) ─────────────────────────────────────────
+  if (process.env.MAILJET_API_KEY && process.env.MAILJET_API_SECRET) {
+    const toList = Array.isArray(to)
+      ? to.map((email) => ({ Email: email }))
+      : [{ Email: to }];
+
+    const payload = {
+      Messages: [{
+        From: {
+          Email: process.env.EMAIL_FROM     || "sahrandhir122@gmail.com",
+          Name:  process.env.EMAIL_FROM_NAME || "CodeLearn",
+        },
+        To:       toList,
+        Subject:  subject,
+        HTMLPart: html,
+        TextPart: text || subject,
+      }],
+    };
+
+    const auth = Buffer.from(
+      `${process.env.MAILJET_API_KEY}:${process.env.MAILJET_API_SECRET}`
+    ).toString("base64");
+
+    const response = await fetch("https://api.mailjet.com/v3.1/send", {
+      method:  "POST",
+      headers: {
+        "Authorization": `Basic ${auth}`,
+        "Content-Type":  "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || result.Messages?.[0]?.Status === "error") {
+      console.error("[email] Mailjet error:", JSON.stringify(result));
+      throw new Error(result.Messages?.[0]?.Errors?.[0]?.ErrorMessage || "Mailjet failed");
+    }
+
+    console.log("[email] Sent via Mailjet →", Array.isArray(to) ? to.join(", ") : to);
+    return result;
+  }
+
+  // ── Brevo HTTP API ───────────────────────────────────────────────────────────
   if (process.env.BREVO_API_KEY) {
     const toList = Array.isArray(to)
       ? to.map((email) => ({ email }))
