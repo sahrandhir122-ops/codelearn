@@ -34,8 +34,7 @@ function detectBrand(num) {
 
 /* ── Card Brand SVG Logos ──────────────────────────────────────── */
 const CardLogo = ({ brand, dim = false }) => {
-  const base = `h-6 w-auto rounded transition-opacity ${dim ? "opacity-25" : "opacity-100"}`;
-
+  const base = `h-5 w-auto rounded transition-opacity duration-200 ${dim ? "opacity-20" : "opacity-100"}`;
   if (brand === "visa") return (
     <svg className={base} viewBox="0 0 50 16" xmlns="http://www.w3.org/2000/svg">
       <rect width="50" height="16" rx="3" fill="#1A1F71"/>
@@ -62,7 +61,6 @@ const CardLogo = ({ brand, dim = false }) => {
       <text x="25" y="12" textAnchor="middle" fill="#FFFFFF" fontSize="9" fontWeight="bold" fontFamily="Arial">RuPay</text>
     </svg>
   );
-  // Discover placeholder
   return (
     <svg className={base} viewBox="0 0 50 16" xmlns="http://www.w3.org/2000/svg">
       <rect width="50" height="16" rx="3" fill="#231F20"/>
@@ -71,9 +69,8 @@ const CardLogo = ({ brand, dim = false }) => {
   );
 };
 
-/* ── All four brand logos shown in card field (like Stripe) ──── */
 const CardBrandRow = ({ activeBrand }) => (
-  <div className="flex items-center gap-1">
+  <div className="flex items-center gap-1.5">
     {["visa","mastercard","amex","rupay"].map((b) => (
       <CardLogo key={b} brand={b} dim={activeBrand !== null && activeBrand !== b} />
     ))}
@@ -82,10 +79,11 @@ const CardBrandRow = ({ activeBrand }) => (
 
 /* ── CVC icon ────────────────────────────────────────────────── */
 const CvcIcon = () => (
-  <svg width="28" height="20" viewBox="0 0 38 26" fill="none" xmlns="http://www.w3.org/2000/svg" className="opacity-40">
+  <svg width="26" height="18" viewBox="0 0 38 26" fill="none" xmlns="http://www.w3.org/2000/svg" className="opacity-35">
     <rect x="1" y="1" width="36" height="24" rx="4" stroke="currentColor" strokeWidth="1.5"/>
     <rect x="1" y="6" width="36" height="5" fill="currentColor" opacity="0.5"/>
     <rect x="22" y="15" width="12" height="4" rx="2" fill="currentColor"/>
+    <text x="28" y="20" textAnchor="middle" fill="currentColor" fontSize="4" fontFamily="Arial">123</text>
   </svg>
 );
 
@@ -101,25 +99,39 @@ const COUNTRIES = [
   "Thailand","Turkey","UAE","Ukraine","United Kingdom","United States","Vietnam",
 ];
 
-/* ── Input Field wrapper ────────────────────────────────────── */
+/* ── Input style helper ─────────────────────────────────────── */
+const inputCls = (err) =>
+  `w-full bg-[#252525] border ${err ? "border-red-500/50" : "border-white/[0.10]"} ` +
+  `rounded-lg px-3.5 py-2.5 text-[13px] text-white placeholder-white/20 ` +
+  `focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/10 transition-all`;
+
+/* ── Labeled field wrapper ──────────────────────────────────── */
 function Field({ label, error, children }) {
   return (
-    <div>
-      {label && <label className="block text-sm font-medium text-white/70 mb-1.5">{label}</label>}
+    <div className="space-y-1.5">
+      {label && (
+        <label className="block text-[12px] font-medium text-white/55 tracking-wide">
+          {label}
+        </label>
+      )}
       {children}
-      {error && <p className="text-xs text-red-400 mt-1.5 flex items-center gap-1"><span>⚠</span>{error}</p>}
+      {error && (
+        <p className="text-[11px] text-red-400 flex items-center gap-1">
+          <svg className="w-3 h-3 shrink-0" viewBox="0 0 12 12" fill="currentColor">
+            <path d="M6 1a5 5 0 100 10A5 5 0 006 1zm-.5 2.5h1v3.5h-1V3.5zm0 4.5h1v1h-1V8z"/>
+          </svg>
+          {error}
+        </p>
+      )}
     </div>
   );
 }
 
-const inputCls = (err) =>
-  `w-full bg-[#2a2a2a] border ${err ? "border-red-500/60" : "border-white/[0.12]"} ` +
-  `rounded-lg px-3.5 py-2.5 text-sm text-white placeholder-white/25 ` +
-  `focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/30 transition`;
-
-/* ── PaymentModal ───────────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════
+   PaymentModal Component
+══════════════════════════════════════════════════════════════ */
 export default function PaymentModal({ isOpen, onClose, orderData, user, description, onVerify }) {
-  const [method,      setMethod]      = useState("razorpay");
+  const [method,      setMethod]      = useState("card");   // ← card is the default
   const [cardNumber,  setCardNumber]  = useState("");
   const [cardName,    setCardName]    = useState("");
   const [country,     setCountry]     = useState("India");
@@ -139,7 +151,7 @@ export default function PaymentModal({ isOpen, onClose, orderData, user, descrip
 
   useEffect(() => {
     if (!isOpen) {
-      setMethod("razorpay"); setCardNumber(""); setCardName(user?.name || "");
+      setMethod("card"); setCardNumber(""); setCardName(user?.name || "");
       setCountry("India"); setAddress(""); setExpiry(""); setCvv("");
       setDiffName(false); setInvoiceName(""); setAgreed(false);
       setErrors({}); setBusy(false);
@@ -169,25 +181,25 @@ export default function PaymentModal({ isOpen, onClose, orderData, user, descrip
     else setExpiry(raw);
   };
 
-  /* Validation */
+  /* Card form validation */
   const validateCard = () => {
     const errs = {};
     const num = cardNumber.replace(/\s/g, "");
-    if (num.length < 16)       errs.cardNumber = "Card number must be 16 digits";
-    else if (!luhnOk(num))     errs.cardNumber = "Invalid card number";
-    if (!cardName.trim())      errs.cardName   = "Full name is required";
-    const [mm = "", yy = ""]   = (expiry || "").replace(" ", "").split("/");
+    if (num.length < 16)        errs.cardNumber = "Card number must be 16 digits";
+    else if (!luhnOk(num))      errs.cardNumber = "Invalid card number";
+    if (!cardName.trim())       errs.cardName   = "Full name is required";
+    const [mm = "", yy = ""]    = (expiry || "").replace(" ", "").split("/");
     const iMonth = parseInt(mm, 10);
     const iYear  = parseInt(yy.trim(), 10);
     if (!mm || mm.length < 2 || iMonth < 1 || iMonth > 12) errs.expiry = "Invalid month";
     else if (!yy.trim() || yy.trim().length < 2)            errs.expiry = "Invalid year";
     else if (new Date(2000 + iYear, iMonth - 1) < new Date()) errs.expiry = "Card has expired";
-    if (cvv.length < 3)        errs.cvv    = "CVV must be 3–4 digits";
-    if (!agreed)               errs.agreed = "You must agree to the terms to continue";
+    if (cvv.length < 3)         errs.cvv    = "CVV must be 3–4 digits";
+    if (!agreed)                errs.agreed = "You must agree to the terms to continue";
     return errs;
   };
 
-  /* Razorpay popup */
+  /* ── Razorpay popup ─────────────────────────────────────────── */
   const handleRazorpayPay = () => {
     if (!scriptReady) { toast.error("Payment gateway not ready, please wait."); return; }
     setBusy(true);
@@ -199,11 +211,16 @@ export default function PaymentModal({ isOpen, onClose, orderData, user, descrip
       theme: { color: "#E8471A" },
       handler: async (response) => {
         try {
-          await onVerify({ razorpayOrderId: response.razorpay_order_id,
+          await onVerify({
+            razorpayOrderId:   response.razorpay_order_id,
             razorpayPaymentId: response.razorpay_payment_id,
-            razorpaySignature: response.razorpay_signature });
+            razorpaySignature: response.razorpay_signature,
+          });
           onClose();
-        } catch { toast.error("Payment verification failed. Contact support."); setBusy(false); }
+        } catch {
+          toast.error("Payment verification failed. Contact support.");
+          setBusy(false);
+        }
       },
       modal: { ondismiss: () => setBusy(false), escape: true },
     };
@@ -215,7 +232,7 @@ export default function PaymentModal({ isOpen, onClose, orderData, user, descrip
     rzp.open();
   };
 
-  /* Direct card via Razorpay API */
+  /* ── Direct card via Razorpay createPayment ─────────────────── */
   const handleCardPay = async () => {
     const errs = validateCard();
     if (Object.keys(errs).length) { setErrors(errs); return; }
@@ -224,22 +241,35 @@ export default function PaymentModal({ isOpen, onClose, orderData, user, descrip
     setBusy(true);
     try {
       const expiryClean = expiry.replace(/\s/g, "");
-      const [mm, yy] = expiryClean.split("/");
+      const [mm, yy]    = expiryClean.split("/");
       const rzp = new window.Razorpay({ key: rzpKey });
       rzp.createPayment({
-        amount: orderData.amount, currency: orderData.currency || "INR",
-        order_id: orderData.orderId, method: "card",
-        card: { number: cardNumber.replace(/\s/g, ""), name: cardName.trim(),
-          expiry_month: mm, expiry_year: `20${yy.trim()}`, cvv },
-        email: user?.email || "", contact: user?.phone || "9999999999",
+        amount:    orderData.amount,
+        currency:  orderData.currency || "INR",
+        order_id:  orderData.orderId,
+        method:    "card",
+        card: {
+          number:        cardNumber.replace(/\s/g, ""),
+          name:          cardName.trim(),
+          expiry_month:  mm,
+          expiry_year:   `20${yy.trim()}`,
+          cvv,
+        },
+        email:   user?.email   || "",
+        contact: user?.phone   || "9999999999",
       });
       rzp.on("payment.success", async (data) => {
         try {
-          await onVerify({ razorpayOrderId: data.razorpay_order_id,
+          await onVerify({
+            razorpayOrderId:   data.razorpay_order_id,
             razorpayPaymentId: data.razorpay_payment_id,
-            razorpaySignature: data.razorpay_signature });
+            razorpaySignature: data.razorpay_signature,
+          });
           onClose();
-        } catch { toast.error("Payment verification failed. Contact support."); setBusy(false); }
+        } catch {
+          toast.error("Payment verification failed. Contact support.");
+          setBusy(false);
+        }
       });
       rzp.on("payment.error", (resp) => {
         toast.error(resp.error?.description || "Card payment failed. Please check your details.");
@@ -251,132 +281,138 @@ export default function PaymentModal({ isOpen, onClose, orderData, user, descrip
     }
   };
 
-  /* Mock/test mode */
+  /* ── Mock / test mode ───────────────────────────────────────── */
   const handleMockPay = async () => {
+    // In mock mode + card view → still validate the form for UX realism
+    if (method === "card") {
+      const errs = validateCard();
+      if (Object.keys(errs).length) { setErrors(errs); return; }
+      setErrors({});
+    }
     setBusy(true);
     try {
-      await onVerify({ razorpayOrderId: orderData.orderId,
+      await onVerify({
+        razorpayOrderId:   orderData.orderId,
         razorpayPaymentId: `mock_pay_${Date.now()}`,
-        razorpaySignature: `mock_sig_${Date.now()}` });
+        razorpaySignature: `mock_sig_${Date.now()}`,
+      });
       onClose();
-    } catch { toast.error("Test payment failed. Check backend logs."); setBusy(false); }
+    } catch {
+      toast.error("Test payment failed. Check backend logs.");
+      setBusy(false);
+    }
   };
 
+  /* ── Master handler ─────────────────────────────────────────── */
   const handlePay = () => {
     if (busy) return;
-    if (isMockMode)                  handleMockPay();
-    else if (method === "razorpay")  handleRazorpayPay();
-    else                             handleCardPay();
+    if (isMockMode)                 return handleMockPay();
+    if (method === "card")          return handleCardPay();
+    return handleRazorpayPay();
   };
 
-  /* ── Render ── */
+  /* ══════════════════════════════════════════════════════════════
+     RENDER
+  ══════════════════════════════════════════════════════════════ */
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-           onClick={() => { if (!busy) onClose(); }} />
+      <div
+        className="absolute inset-0 bg-black/75 backdrop-blur-sm"
+        onClick={() => { if (!busy) onClose(); }}
+      />
 
-      <div className="relative w-full max-w-[440px] bg-[#1c1c1c] border border-white/[0.10] rounded-2xl shadow-2xl animate-fade-in overflow-hidden">
+      <div className="relative w-full max-w-[440px] bg-[#1a1a1a] border border-white/[0.09] rounded-2xl shadow-2xl overflow-hidden animate-fade-in">
 
-        {/* ── Header ── */}
-        <div className="flex items-start justify-between px-6 py-5 border-b border-white/[0.07]">
-          <div className="flex-1 min-w-0 pr-4">
-            <h2 className="font-display font-bold text-lg leading-tight">Complete Purchase</h2>
-            <p className="text-white/40 text-sm mt-0.5 truncate">{description}</p>
-          </div>
-          {!busy && (
-            <button onClick={onClose}
-              className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors text-xl">
-              ✕
-            </button>
-          )}
-        </div>
+        {/* ── Close button ── */}
+        {!busy && (
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 z-10 w-7 h-7 flex items-center justify-center rounded-full text-white/30 hover:text-white/60 hover:bg-white/[0.08] transition-all text-lg"
+          >
+            ✕
+          </button>
+        )}
 
-        {/* ── Amount Banner ── */}
-        <div className="px-6 py-3 bg-primary/[0.08] border-b border-white/[0.07] flex items-center justify-between">
-          <span className="text-sm text-white/50">Total payable</span>
-          <span className="font-display font-black text-2xl text-white">{amountDisplay}</span>
-        </div>
+        {/* ── Scrollable body ── */}
+        <div className="px-7 pt-6 pb-7 overflow-y-auto max-h-[calc(100vh-60px)]">
 
-        <div className="px-6 pt-5 pb-6 overflow-y-auto max-h-[calc(100vh-200px)]">
-
-          {/* ── TEST MODE BANNER ── */}
+          {/* ── Mock mode banner ── */}
           {isMockMode && (
-            <div className="mb-4 px-4 py-3 rounded-xl border border-amber-400/30 bg-amber-400/[0.08] flex items-start gap-3">
-              <span className="text-lg mt-0.5">🧪</span>
+            <div className="mb-5 px-4 py-3 rounded-xl border border-amber-400/25 bg-amber-400/[0.07] flex items-start gap-3">
+              <span className="text-base mt-0.5">🧪</span>
               <div>
-                <p className="text-sm font-semibold text-amber-400">Test Mode — No real payment</p>
-                <p className="text-xs text-amber-400/70 mt-0.5 leading-relaxed">
-                  Razorpay keys not configured. Any payment below will simulate enrollment without charging.
+                <p className="text-sm font-semibold text-amber-400 leading-tight">Test Mode — No real charge</p>
+                <p className="text-xs text-amber-400/60 mt-0.5 leading-relaxed">
+                  Razorpay keys not configured. Fill the form and click Subscribe — enrollment will be simulated.
                 </p>
               </div>
             </div>
           )}
 
-          {/* ── Method Tabs ── */}
-          <div className="flex rounded-xl overflow-hidden border border-white/[0.10] mb-5">
+          {/* ── Header ── */}
+          <h2 className="text-[17px] font-bold text-white mb-1 leading-snug">Payment method</h2>
+          <p className="text-[12px] text-white/35 mb-5 leading-relaxed">
+            {description} · <span className="text-white/55 font-semibold">{amountDisplay}</span>
+          </p>
+
+          {/* ── Method toggle ── */}
+          <div className="flex rounded-xl border border-white/[0.09] overflow-hidden mb-5">
             {[
-              { id: "razorpay", label: "Razorpay", icon: "🏦" },
-              { id: "card",     label: "Card",      icon: "💳" },
+              { id: "card",     label: "Credit / Debit Card", icon: "💳" },
+              { id: "razorpay", label: "Razorpay / UPI",      icon: "⚡" },
             ].map((m) => (
-              <button key={m.id} disabled={busy} onClick={() => setMethod(m.id)}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-semibold transition-all
-                  ${method === m.id ? "bg-primary text-white" : "bg-white/[0.04] text-white/50 hover:text-white/80 hover:bg-white/[0.07]"}
-                  disabled:opacity-50 disabled:pointer-events-none`}>
-                <span>{m.icon}</span>{m.label}
+              <button
+                key={m.id}
+                disabled={busy}
+                onClick={() => setMethod(m.id)}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-[12.5px] font-semibold transition-all
+                  ${method === m.id
+                    ? "bg-white/[0.10] text-white"
+                    : "bg-transparent text-white/35 hover:text-white/60 hover:bg-white/[0.05]"}
+                  disabled:opacity-40 disabled:pointer-events-none`}
+              >
+                <span className="text-sm">{m.icon}</span>{m.label}
               </button>
             ))}
           </div>
 
-          {/* ── Razorpay info panel ── */}
-          {method === "razorpay" && (
-            <div className="mb-4 p-4 bg-white/[0.03] rounded-xl border border-white/[0.07]">
-              <p className="text-sm text-white/60 leading-relaxed">
-                Click <strong className="text-white/90">Pay Now</strong> to open the Razorpay secure
-                checkout — UPI, Wallets, Net Banking, Cards and more.
-              </p>
-              <div className="flex flex-wrap gap-2 mt-3">
-                {["Google Pay","PhonePe","Paytm","BHIM UPI","Visa","Mastercard","RuPay"].map((p) => (
-                  <span key={p} className="text-[10px] bg-white/[0.06] px-2 py-1 rounded-md text-white/40">{p}</span>
-                ))}
-              </div>
-            </div>
-          )}
-
           {/* ══════════════════════════════════════════════════════
-              CARD FORM — Stripe-style
+              CARD FORM
           ══════════════════════════════════════════════════════ */}
           {method === "card" && (
             <div className="space-y-4">
 
-              {/* Payment method label */}
-              <p className="text-xs font-semibold text-white/35 uppercase tracking-widest -mb-1">
-                Payment method
-              </p>
-
               {/* Full name */}
               <Field label="Full name" error={errors.cardName}>
-                <input type="text" autoComplete="cc-name"
+                <input
+                  type="text"
+                  autoComplete="cc-name"
                   placeholder={user?.name || "Your full name"}
                   value={cardName}
                   onChange={(e) => setCardName(e.target.value)}
                   disabled={busy}
-                  className={inputCls(errors.cardName)} />
+                  className={inputCls(errors.cardName)}
+                />
               </Field>
 
               {/* Country */}
               <Field label="Country or region">
                 <div className="relative">
-                  <select value={country} onChange={(e) => setCountry(e.target.value)}
+                  <select
+                    value={country}
+                    onChange={(e) => setCountry(e.target.value)}
                     disabled={busy}
-                    className={`${inputCls(false)} appearance-none pr-9 cursor-pointer`}>
+                    className={`${inputCls(false)} appearance-none pr-9 cursor-pointer`}
+                  >
                     {COUNTRIES.map((c) => (
-                      <option key={c} value={c} className="bg-[#2a2a2a]">{c}</option>
+                      <option key={c} value={c} className="bg-[#252525]">{c}</option>
                     ))}
                   </select>
-                  {/* Chevron */}
-                  <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40 pointer-events-none"
-                    viewBox="0 0 20 20" fill="currentColor">
+                  <svg
+                    className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/35 pointer-events-none"
+                    viewBox="0 0 20 20" fill="currentColor"
+                  >
                     <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd"/>
                   </svg>
                 </div>
@@ -384,22 +420,29 @@ export default function PaymentModal({ isOpen, onClose, orderData, user, descrip
 
               {/* Address */}
               <Field label="Address line 1">
-                <input type="text" autoComplete="street-address"
+                <input
+                  type="text"
+                  autoComplete="street-address"
                   placeholder=""
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
                   disabled={busy}
-                  className={inputCls(false)} />
+                  className={inputCls(false)}
+                />
               </Field>
 
-              {/* Card Number — full width with brand logos */}
+              {/* Card number */}
               <Field label="Card number" error={errors.cardNumber}>
                 <div className="relative">
-                  <input type="text" inputMode="numeric" autoComplete="cc-number"
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="cc-number"
                     placeholder="1234 1234 1234 1234"
                     value={cardNumber}
                     onChange={handleCardNumChange}
-                    maxLength={19} disabled={busy}
+                    maxLength={19}
+                    disabled={busy}
                     className={`${inputCls(errors.cardNumber)} font-mono tracking-widest pr-44`}
                   />
                   <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
@@ -408,25 +451,34 @@ export default function PaymentModal({ isOpen, onClose, orderData, user, descrip
                 </div>
               </Field>
 
-              {/* Expiry + CVC side by side */}
+              {/* Expiry + CVC */}
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Expiration date" error={errors.expiry}>
-                  <input type="text" inputMode="numeric" autoComplete="cc-exp"
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="cc-exp"
                     placeholder="MM / YY"
                     value={expiry}
                     onChange={handleExpiryChange}
-                    maxLength={7} disabled={busy}
-                    className={`${inputCls(errors.expiry)} font-mono`} />
+                    maxLength={7}
+                    disabled={busy}
+                    className={`${inputCls(errors.expiry)} font-mono`}
+                  />
                 </Field>
-
                 <Field label="Security code" error={errors.cvv}>
                   <div className="relative">
-                    <input type="password" inputMode="numeric" autoComplete="cc-csc"
+                    <input
+                      type="password"
+                      inputMode="numeric"
+                      autoComplete="cc-csc"
                       placeholder="CVC"
                       value={cvv}
                       onChange={(e) => setCvv(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                      maxLength={4} disabled={busy}
-                      className={`${inputCls(errors.cvv)} font-mono pr-10`} />
+                      maxLength={4}
+                      disabled={busy}
+                      className={`${inputCls(errors.cvv)} font-mono pr-9`}
+                    />
                     <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-white">
                       <CvcIcon />
                     </div>
@@ -434,66 +486,102 @@ export default function PaymentModal({ isOpen, onClose, orderData, user, descrip
                 </Field>
               </div>
 
-              {/* Different name on invoices */}
-              <label className="flex items-center gap-3 cursor-pointer group">
-                <div className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-colors
-                  ${diffName ? "bg-primary border-primary" : "border-white/25 bg-white/[0.04] group-hover:border-white/40"}`}
-                  onClick={() => setDiffName((v) => !v)}>
+              {/* Different name checkbox */}
+              <label className="flex items-center gap-3 cursor-pointer group select-none">
+                <div
+                  className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-all
+                    ${diffName
+                      ? "bg-primary border-primary"
+                      : "border-white/20 bg-white/[0.03] group-hover:border-white/35"}`}
+                  onClick={() => setDiffName((v) => !v)}
+                >
                   {diffName && (
                     <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 12 12">
                       <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                   )}
                 </div>
-                <span className="text-sm text-white/60 select-none">Use a different name on invoices</span>
-                <input type="checkbox" className="hidden" checked={diffName} onChange={() => {}} />
+                <span className="text-[13px] text-white/50">Use a different name on invoices</span>
               </label>
 
               {diffName && (
-                <input type="text" placeholder="Invoice name"
+                <input
+                  type="text"
+                  placeholder="Invoice name"
                   value={invoiceName}
                   onChange={(e) => setInvoiceName(e.target.value)}
                   disabled={busy}
-                  className={`${inputCls(false)} mt-1`} />
+                  className={inputCls(false)}
+                />
               )}
 
-              {/* Terms agreement */}
-              <label className={`flex items-start gap-3 cursor-pointer group mt-1 ${errors.agreed ? "pb-0" : ""}`}>
-                <div className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors
-                  ${agreed ? "bg-primary border-primary" : `${errors.agreed ? "border-red-500/60" : "border-white/25"} bg-white/[0.04] group-hover:border-white/40`}`}
-                  onClick={() => { setAgreed((v) => !v); if (errors.agreed) setErrors((e) => ({ ...e, agreed: undefined })); }}>
+              {/* Agreement checkbox */}
+              <label className="flex items-start gap-3 cursor-pointer group select-none">
+                <div
+                  className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 mt-0.5 transition-all
+                    ${agreed
+                      ? "bg-primary border-primary"
+                      : `${errors.agreed ? "border-red-500/50" : "border-white/20"} bg-white/[0.03] group-hover:border-white/35`}`}
+                  onClick={() => {
+                    setAgreed((v) => !v);
+                    if (errors.agreed) setErrors((e) => ({ ...e, agreed: undefined }));
+                  }}
+                >
                   {agreed && (
                     <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 12 12">
                       <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                   )}
                 </div>
-                <span className="text-xs text-white/50 leading-relaxed select-none">
-                  You agree that CodeLearn will charge your card in the amount above. You can manage
-                  your purchases in account settings. View our{" "}
-                  <a href="/terms" className="underline text-white/60 hover:text-white" target="_blank">terms</a>.
+                <span className="text-[12px] text-white/45 leading-relaxed">
+                  You agree that CodeLearn will charge your card in the amount above now. You can
+                  manage your purchases in account settings in accordance with our{" "}
+                  <a href="/terms" className="underline text-white/55 hover:text-white/80 transition-colors" target="_blank" rel="noreferrer">
+                    terms
+                  </a>.
                 </span>
-                <input type="checkbox" className="hidden" checked={agreed} onChange={() => {}} />
               </label>
-              {errors.agreed && <p className="text-xs text-red-400 -mt-2 flex items-center gap-1"><span>⚠</span>{errors.agreed}</p>}
+              {errors.agreed && (
+                <p className="text-[11px] text-red-400 flex items-center gap-1 -mt-2">
+                  <svg className="w-3 h-3 shrink-0" viewBox="0 0 12 12" fill="currentColor">
+                    <path d="M6 1a5 5 0 100 10A5 5 0 006 1zm-.5 2.5h1v3.5h-1V3.5zm0 4.5h1v1h-1V8z"/>
+                  </svg>
+                  {errors.agreed}
+                </p>
+              )}
+            </div>
+          )}
 
-              {/* Secure note */}
-              <p className="flex items-center gap-2 text-xs text-white/25 bg-white/[0.02] px-3 py-2.5 rounded-xl border border-white/[0.05]">
-                <span className="text-base">🔐</span>
-                Your card details are encrypted end-to-end by Razorpay and never stored on our servers.
+          {/* ══════════════════════════════════════════════════════
+              RAZORPAY PANEL
+          ══════════════════════════════════════════════════════ */}
+          {method === "razorpay" && (
+            <div className="space-y-4">
+              <div className="p-4 bg-white/[0.03] rounded-xl border border-white/[0.07]">
+                <p className="text-[13px] text-white/55 leading-relaxed">
+                  Click <strong className="text-white/80">Subscribe</strong> to open the Razorpay secure
+                  checkout — supports UPI, Wallets, Net Banking, Cards and more.
+                </p>
+                <div className="flex flex-wrap gap-2 mt-3">
+                  {["Google Pay","PhonePe","Paytm","BHIM UPI","Visa","Mastercard","RuPay"].map((p) => (
+                    <span key={p} className="text-[10px] bg-white/[0.06] px-2 py-1 rounded-md text-white/35 font-medium">{p}</span>
+                  ))}
+                </div>
+              </div>
+              <p className="text-[11px] text-white/25 leading-relaxed">
+                Total: <strong className="text-white/45">{amountDisplay}</strong> · Secured by Razorpay 256-bit TLS encryption
               </p>
             </div>
           )}
 
-          {/* ── CTA Button ── */}
+          {/* ── Subscribe / Pay button ── */}
           <button
             onClick={handlePay}
             disabled={busy || (!isMockMode && !scriptReady)}
-            className={`w-full justify-center py-3.5 text-base font-semibold rounded-xl mt-5 transition-all
-              ${isMockMode && method === "razorpay"
-                ? "border-2 border-amber-400/50 text-amber-300 bg-amber-400/10 hover:bg-amber-400/20"
-                : "bg-primary text-white hover:bg-primary/90 active:scale-[0.99]"}
-              disabled:opacity-50 disabled:pointer-events-none`}>
+            className="w-full mt-5 py-3 text-[14px] font-semibold rounded-xl transition-all
+              bg-[#3a3a3a] hover:bg-[#444444] active:scale-[0.99] text-white/90
+              disabled:opacity-40 disabled:pointer-events-none shadow-sm"
+          >
             {busy ? (
               <span className="flex items-center justify-center gap-2">
                 <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
@@ -502,14 +590,19 @@ export default function PaymentModal({ isOpen, onClose, orderData, user, descrip
                 </svg>
                 Processing…
               </span>
-            ) : method === "card" ? "Subscribe"
-              : isMockMode ? `🧪 Simulate Payment (${amountDisplay})`
-              : !scriptReady ? "Loading payment gateway…"
-              : `Pay ${amountDisplay} →`}
+            ) : isMockMode && method === "card"
+              ? `Subscribe (Test · ${amountDisplay})`
+              : isMockMode
+              ? `🧪 Simulate Payment (${amountDisplay})`
+              : !scriptReady
+              ? "Loading…"
+              : "Subscribe"
+            }
           </button>
 
-          <p className="text-center text-xs text-white/20 mt-3">
-            🔒 Payments secured by Razorpay · 256-bit TLS encryption
+          {/* Secure note */}
+          <p className="flex items-center justify-center gap-1.5 text-[11px] text-white/20 mt-3">
+            <span>🔒</span> Payments secured by Razorpay · 256-bit TLS
           </p>
         </div>
       </div>
