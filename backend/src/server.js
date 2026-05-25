@@ -30,6 +30,10 @@ require("./config/passport");
 
 const app = express();
 
+// ── Trust proxy (required for Render / cloud deployments) ─────────────────
+// Fixes express-rate-limit ERR_ERL_UNEXPECTED_X_FORWARDED_FOR warning
+app.set("trust proxy", 1);
+
 // ── Connect databases ──────────────────────────────────────────────────────
 connectDB();
 connectRedis();
