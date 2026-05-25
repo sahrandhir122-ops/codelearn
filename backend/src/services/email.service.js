@@ -5,15 +5,54 @@ const nodemailer = require("nodemailer");
 // Falls back to Gmail SMTP if not set.
 
 const sendEmail = async ({ to, subject, html, text }) => {
-  // ── Resend API (preferred for production) ────────────────────────────────
+  // ── Brevo HTTP API (preferred — works from all cloud providers incl. Render) ──
+  if (process.env.BREVO_API_KEY) {
+    const toList = Array.isArray(to)
+      ? to.map((email) => ({ email }))
+      : [{ email: to }];
+
+    const payload = {
+      sender: {
+        name:  process.env.EMAIL_FROM_NAME || "CodeLearn",
+        email: process.env.EMAIL_FROM      || "sahrandhir122@gmail.com",
+      },
+      to:          toList,
+      subject,
+      htmlContent: html,
+      textContent: text || subject,
+    };
+
+    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method:  "POST",
+      headers: {
+        "accept":       "application/json",
+        "api-key":      process.env.BREVO_API_KEY,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      console.error("[email] Brevo API error:", result);
+      throw new Error(result.message || "Brevo API request failed");
+    }
+
+    console.log(
+      "[email] Sent via Brevo API →",
+      Array.isArray(to) ? to.join(", ") : to,
+      "messageId:", result.messageId
+    );
+    return result;
+  }
+
+  // ── Resend API fallback ──────────────────────────────────────────────────
   if (process.env.RESEND_API_KEY) {
     const { Resend } = require("resend");
     const resend = new Resend(process.env.RESEND_API_KEY);
-
-    // If user has a verified domain, use it; otherwise fall back to resend.dev test sender
     const fromEmail = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
-    const fromName  = process.env.EMAIL_FROM_NAME    || "CodeLearn";
-
+    const fromName  = process.env.EMAIL_FROM_NAME   || "CodeLearn";
     const result = await resend.emails.send({
       from:    `${fromName} <${fromEmail}>`,
       to:      Array.isArray(to) ? to : [to],
@@ -21,12 +60,10 @@ const sendEmail = async ({ to, subject, html, text }) => {
       html,
       text,
     });
-
     if (result.error) {
       console.error("[email] Resend error:", result.error);
       throw new Error(result.error.message || "Resend failed");
     }
-
     console.log("[email] Sent via Resend →", Array.isArray(to) ? to.join(", ") : to, "id:", result.data?.id);
     return result;
   }
