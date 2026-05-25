@@ -1,0 +1,28 @@
+const express = require("express");
+const router = express.Router();
+const adminController = require("../controllers/admin.controller");
+const { protect, restrictTo } = require("../middleware/auth.middleware");
+
+// All admin routes require admin role
+router.use(protect, restrictTo("admin"));
+
+// Dashboard
+router.get("/stats", adminController.getDashboardStats);
+
+// Users
+router.get("/users", adminController.getAllUsers);
+router.patch("/users/:id/role", adminController.changeUserRole);
+router.delete("/users/:id", adminController.deleteUser);
+
+// Courses (all, including drafts)
+router.get("/courses", adminController.getAllCourses);
+
+// Comments
+router.get("/comments/pending", adminController.getPendingComments);
+
+// Revenue analytics
+router.get("/revenue/daily", adminController.getDailyRevenue);
+router.get("/revenue/monthly", adminController.getMonthlyRevenue);
+router.get("/revenue/yearly", adminController.getYearlyRevenue);
+
+module.exports = router;
