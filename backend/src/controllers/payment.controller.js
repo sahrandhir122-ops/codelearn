@@ -1,4 +1,5 @@
 const crypto = require("crypto");
+const mongoose = require("mongoose");
 const Razorpay = require("razorpay");
 const Course = require("../models/Course.model");
 const Transaction = require("../models/Transaction.model");
@@ -10,18 +11,19 @@ const {
 } = require("../services/email.service");
 
 // ── Mock mode: active when Razorpay keys are placeholder / missing ─────────
-const PLACEHOLDER_KEY = "rzp_test_YOUR_KEY_ID";
+const PLACEHOLDER_KEY    = "rzp_test_YOUR_KEY_ID";
+const PLACEHOLDER_SECRET = "YOUR_RAZORPAY_KEY_SECRET";
 const isMockMode = () =>
   !process.env.RAZORPAY_KEY_ID ||
   process.env.RAZORPAY_KEY_ID === PLACEHOLDER_KEY ||
   !process.env.RAZORPAY_KEY_SECRET ||
-  process.env.RAZORPAY_KEY_SECRET === "YOUR_RAZORPAY_KEY_SECRET";
+  process.env.RAZORPAY_KEY_SECRET === PLACEHOLDER_SECRET;
 
 // ── Initialize Razorpay (only in live mode) ────────────────────────────────
 const getRazorpay = () => {
-  if (isMockMode()) return null; // handled separately
+  if (isMockMode()) return null;
   return new Razorpay({
-    key_id: process.env.RAZORPAY_KEY_ID,
+    key_id:     process.env.RAZORPAY_KEY_ID,
     key_secret: process.env.RAZORPAY_KEY_SECRET,
   });
 };
@@ -31,56 +33,86 @@ const getRazorpay = () => {
 // ─────────────────────────────────────────────────────────────────────────────
 exports.createOrder = async (req, res, next) => {
   const { courseId } = req.body;
-  if (!courseId) return next(new AppError("courseId is required.", 400));
+
+  // ── Basic validation ──────────────────────────────────────────────────────
+  if (!courseId)
+    return next(new AppError("courseId is required.", 400));
+  if (!mongoose.Types.ObjectId.isValid(courseId))
+    return next(new AppError("Invalid course ID.", 400));
 
   const course = await Course.findById(courseId);
-  if (!course) return next(new AppError("Course not found.", 404));
+  if (!course)
+    return next(new AppError("Course not found.", 404));
 
-  // Check if already enrolled
-  const alreadyEnrolled = req.user.enrolledCourses.some(
-    (id) => id.toString() === courseId
+  // ── Already enrolled check (defensive — enrolledCourses may be empty) ─────
+  const enrolledCourses = Array.isArray(req.user?.enrolledCourses)
+    ? req.user.enrolledCourses
+    : [];
+  const alreadyEnrolled = enrolledCourses.some(
+    (id) => id?.toString() === courseId
   );
   if (alreadyEnrolled)
-    return next(new AppError("Already enrolled in this course.", 400));
+    return next(new AppError("You are already enrolled in this course.", 400));
 
-  const amountPaise = Math.round(course.price * 100);
+  const amountPaise = Math.round((course.price || 0) * 100);
+  const mock = isMockMode();
+
+  console.log(
+    `[payment] createOrder user=${req.user._id} course=${courseId} ` +
+    `price=${course.price} mockMode=${mock}`
+  );
 
   // ── Mock Mode ───────────────────────────────────────────────────────────
-  if (isMockMode()) {
-    const mockOrderId = `mock_order_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+  if (mock) {
+    const mockOrderId =
+      `mock_order_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
     await Transaction.create({
-      user: req.user._id,
-      course: course._id,
-      amount: course.price,
-      currency: "INR",
+      user:            req.user._id,
+      course:          course._id,
+      amount:          course.price || 0,
+      currency:        "INR",
       razorpayOrderId: mockOrderId,
-      status: "pending",
+      status:          "pending",
     });
+    console.log(`[payment] mock order created: ${mockOrderId}`);
     return res.json({
       status: "success",
       data: {
-        orderId:     mockOrderId,
-        amount:      amountPaise,
-        currency:    "INR",
-        keyId:       "mock_key",
-        mockMode:    true,
-        courseName:  course.title,
+        orderId:    mockOrderId,
+        amount:     amountPaise,
+        currency:   "INR",
+        keyId:      "mock_key",
+        mockMode:   true,
+        courseName: course.title,
       },
     });
   }
 
   // ── Live Mode ────────────────────────────────────────────────────────────
-  const razorpay = getRazorpay();
-  const order = await razorpay.orders.create({
-    amount: amountPaise,
-    currency: "INR",
-    receipt: `rcpt_${Date.now()}`,
-    notes: {
-      courseId:   course._id.toString(),
-      userId:     req.user._id.toString(),
-      courseName: course.title,
-    },
-  });
+  let order;
+  try {
+    const razorpay = getRazorpay();
+    order = await razorpay.orders.create({
+      amount:   amountPaise,
+      currency: "INR",
+      receipt:  `rcpt_${Date.now()}`,
+      notes: {
+        courseId:   course._id.toString(),
+        userId:     req.user._id.toString(),
+        courseName: course.title,
+      },
+    });
+  } catch (rzpErr) {
+    console.error(
+      "[payment] Razorpay order creation failed:",
+      rzpErr?.error || rzpErr?.message || rzpErr
+    );
+    // Convert Razorpay SDK error → operational AppError (won't show "Something went wrong")
+    const msg = rzpErr?.error?.description
+      || rzpErr?.message
+      || "Payment gateway error. Please try again.";
+    return next(new AppError(msg, 502));
+  }
 
   await Transaction.create({
     user:            req.user._id,
@@ -91,6 +123,7 @@ exports.createOrder = async (req, res, next) => {
     status:          "pending",
   });
 
+  console.log(`[payment] live order created: ${order.id}`);
   res.json({
     status: "success",
     data: {
@@ -111,9 +144,12 @@ exports.cartCheckout = async (req, res, next) => {
   if (!courseIds || !Array.isArray(courseIds) || courseIds.length === 0)
     return next(new AppError("courseIds array is required.", 400));
 
-  // Filter out already-enrolled courses
+  // Filter out already-enrolled courses (defensive)
+  const userEnrolled = Array.isArray(req.user?.enrolledCourses)
+    ? req.user.enrolledCourses
+    : [];
   const toEnroll = courseIds.filter(
-    (id) => !req.user.enrolledCourses.some((eid) => eid.toString() === id)
+    (id) => !userEnrolled.some((eid) => eid?.toString() === id)
   );
   if (toEnroll.length === 0)
     return next(new AppError("Already enrolled in all selected courses.", 400));
@@ -161,17 +197,24 @@ exports.cartCheckout = async (req, res, next) => {
   }
 
   // ── Live Mode ────────────────────────────────────────────────────────────
-  const razorpay = getRazorpay();
-  const order = await razorpay.orders.create({
-    amount:   amountPaise,
-    currency: "INR",
-    receipt:  `cart_${Date.now()}`,
-    notes: {
-      courseIds: toEnroll.join(","),
-      userId:    req.user._id.toString(),
-      type:      "cart",
-    },
-  });
+  let order;
+  try {
+    const razorpay = getRazorpay();
+    order = await razorpay.orders.create({
+      amount:   amountPaise,
+      currency: "INR",
+      receipt:  `cart_${Date.now()}`,
+      notes: {
+        courseIds: toEnroll.join(","),
+        userId:    req.user._id.toString(),
+        type:      "cart",
+      },
+    });
+  } catch (rzpErr) {
+    console.error("[payment] Razorpay cart order failed:", rzpErr?.error || rzpErr?.message);
+    const msg = rzpErr?.error?.description || rzpErr?.message || "Payment gateway error.";
+    return next(new AppError(msg, 502));
+  }
 
   await Promise.all(
     courses.map((course) =>
