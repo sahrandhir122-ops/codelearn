@@ -1,11 +1,79 @@
 const nodemailer = require("nodemailer");
 
-// ── Provider: Resend (HTTP API — works reliably from all cloud providers) ──────
-// Set RESEND_API_KEY in env to use Resend (recommended for production).
-// Falls back to Gmail SMTP if not set.
+// ── Provider priority ──────────────────────────────────────────────────────────
+// 1. Gmail API   — free forever, pure HTTPS, no port blocking on Render ✅
+// 2. SMTP2GO     — needs work email to sign up ⚠️
+// 3. Elastic Email — restricted to account email on free plan ⚠️
+// 4. Mailjet     — suspended ⚠️
+// 5. Brevo       — needs phone verification ⚠️
+// 6. Resend      — restricted to account email on free plan ⚠️
+// 7. Gmail SMTP  — blocked on Render free tier ⚠️
 
 const sendEmail = async ({ to, subject, html, text }) => {
-  // ── Elastic Email HTTP API (top priority) ────────────────────────────────────
+  // ── Gmail API via OAuth2 (HTTPS — works on Render, free forever) ──────────────
+  if (
+    process.env.GMAIL_CLIENT_ID &&
+    process.env.GMAIL_CLIENT_SECRET &&
+    process.env.GMAIL_REFRESH_TOKEN
+  ) {
+    // 1. Get a fresh access token using the refresh token
+    const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+      method:  "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body:    new URLSearchParams({
+        client_id:     process.env.GMAIL_CLIENT_ID,
+        client_secret: process.env.GMAIL_CLIENT_SECRET,
+        refresh_token: process.env.GMAIL_REFRESH_TOKEN,
+        grant_type:    "refresh_token",
+      }),
+    });
+    const tokenData = await tokenRes.json();
+    if (!tokenData.access_token) {
+      console.error("[email] Gmail OAuth token error:", tokenData);
+      throw new Error(tokenData.error_description || "Gmail OAuth token refresh failed");
+    }
+
+    // 2. Build RFC 2822 email message
+    const toAddr   = Array.isArray(to) ? to.join(", ") : to;
+    const fromAddr = `"${process.env.EMAIL_FROM_NAME || "CodeLearn"}" <${process.env.EMAIL_USER || process.env.EMAIL_FROM}>`;
+    const rawMsg   = [
+      `From: ${fromAddr}`,
+      `To: ${toAddr}`,
+      `Subject: ${subject}`,
+      "MIME-Version: 1.0",
+      'Content-Type: text/html; charset="utf-8"',
+      "",
+      html || text || "",
+    ].join("\r\n");
+
+    // 3. Base64url-encode and send via Gmail API
+    const encoded = Buffer.from(rawMsg)
+      .toString("base64")
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
+
+    const sendRes = await fetch(
+      "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+      {
+        method:  "POST",
+        headers: {
+          Authorization:  `Bearer ${tokenData.access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ raw: encoded }),
+      }
+    );
+    const result = await sendRes.json();
+    if (!sendRes.ok) {
+      console.error("[email] Gmail API error:", JSON.stringify(result));
+      throw new Error(result.error?.message || "Gmail API send failed");
+    }
+    console.log("[email] Sent via Gmail API →", toAddr, "| msgId:", result.id);
+    return result;
+  }
+
+  // ── Elastic Email HTTP API ────────────────────────────────────────────────────
   if (process.env.ELASTIC_EMAIL_API_KEY) {
     const toList = Array.isArray(to) ? to : [to];
     const payload = {
