@@ -5,7 +5,41 @@ const nodemailer = require("nodemailer");
 // Falls back to Gmail SMTP if not set.
 
 const sendEmail = async ({ to, subject, html, text }) => {
-  // ── Mailjet HTTP API (top priority) ─────────────────────────────────────────
+  // ── Elastic Email HTTP API (top priority) ────────────────────────────────────
+  if (process.env.ELASTIC_EMAIL_API_KEY) {
+    const toList = Array.isArray(to) ? to : [to];
+    const payload = {
+      Recipients: { To: toList },
+      Content: {
+        From:    process.env.EMAIL_FROM      || "sahrandhir122@gmail.com",
+        ReplyTo: process.env.EMAIL_FROM      || "sahrandhir122@gmail.com",
+        Subject: subject,
+        Body: [
+          { ContentType: "HTML", Content: html },
+          { ContentType: "PlainText", Content: text || subject },
+        ],
+      },
+    };
+
+    const response = await fetch("https://api.elasticemail.com/v4/emails/transactional", {
+      method:  "POST",
+      headers: {
+        "X-ElasticEmail-ApiKey": process.env.ELASTIC_EMAIL_API_KEY,
+        "Content-Type":          "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const result = await response.json();
+    if (!response.ok) {
+      console.error("[email] Elastic Email error:", JSON.stringify(result));
+      throw new Error(result?.Error || "Elastic Email failed");
+    }
+    console.log("[email] Sent via Elastic Email →", toList.join(", "));
+    return result;
+  }
+
+  // ── Mailjet HTTP API ─────────────────────────────────────────────────────────
   if (process.env.MAILJET_API_KEY && process.env.MAILJET_API_SECRET) {
     const toList = Array.isArray(to)
       ? to.map((email) => ({ Email: email }))
