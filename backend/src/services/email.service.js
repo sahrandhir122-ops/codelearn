@@ -1,7 +1,47 @@
 const nodemailer = require("nodemailer");
 
-// ── Singleton transporter — created once, reused for every email ───────────
-// This avoids re-connecting to Gmail SMTP on every send (saves ~2–3 s per email).
+// ── Provider: Resend (HTTP API — works reliably from all cloud providers) ──────
+// Set RESEND_API_KEY in env to use Resend (recommended for production).
+// Falls back to Gmail SMTP if not set.
+
+const sendEmail = async ({ to, subject, html, text }) => {
+  // ── Resend API (preferred for production) ────────────────────────────────
+  if (process.env.RESEND_API_KEY) {
+    const { Resend } = require("resend");
+    const resend = new Resend(process.env.RESEND_API_KEY);
+
+    // If user has a verified domain, use it; otherwise fall back to resend.dev test sender
+    const fromEmail = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
+    const fromName  = process.env.EMAIL_FROM_NAME    || "CodeLearn";
+
+    const result = await resend.emails.send({
+      from:    `${fromName} <${fromEmail}>`,
+      to:      Array.isArray(to) ? to : [to],
+      subject,
+      html,
+      text,
+    });
+
+    if (result.error) {
+      console.error("[email] Resend error:", result.error);
+      throw new Error(result.error.message || "Resend failed");
+    }
+
+    console.log("[email] Sent via Resend →", Array.isArray(to) ? to.join(", ") : to, "id:", result.data?.id);
+    return result;
+  }
+
+  // ── Gmail SMTP fallback ──────────────────────────────────────────────────
+  return getTransporter().sendMail({
+    from: `"${process.env.EMAIL_FROM_NAME || "CodeLearn"}" <${process.env.EMAIL_FROM}>`,
+    to,
+    subject,
+    html,
+    text,
+  });
+};
+
+// ── Singleton Gmail transporter ────────────────────────────────────────────
 let _transporter = null;
 
 const getTransporter = () => {
@@ -9,33 +49,22 @@ const getTransporter = () => {
   _transporter = nodemailer.createTransport({
     host:    process.env.EMAIL_HOST || "smtp.gmail.com",
     port:    Number(process.env.EMAIL_PORT) || 587,
-    secure:  false,   // STARTTLS on 587
+    secure:  Number(process.env.EMAIL_PORT) === 465,
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS,
     },
     tls:               { rejectUnauthorized: false },
-    connectionTimeout: 10_000,   // 10 s — fail fast instead of hanging
+    connectionTimeout: 10_000,
     greetingTimeout:   10_000,
     socketTimeout:     15_000,
-    pool:              true,      // keep connections alive
+    pool:              true,
     maxConnections:    3,
   });
   return _transporter;
 };
 
-// ── Core send helper ───────────────────────────────────────────────────────
-// Returns a Promise. Callers choose whether to await it or fire-and-forget.
-const sendEmail = ({ to, subject, html, text }) =>
-  getTransporter().sendMail({
-    from: `"${process.env.EMAIL_FROM_NAME || "CodeLearn"}" <${process.env.EMAIL_FROM}>`,
-    to,
-    subject,
-    html,
-    text,
-  });
-
-// ── Fire-and-forget helper — send without blocking the response ─────────────
+// ── Fire-and-forget helper ─────────────────────────────────────────────────
 const sendEmailBg = (opts) => {
   sendEmail(opts).catch((err) =>
     console.error("[email] Background send failed:", err.message)
@@ -74,7 +103,7 @@ const sendOTPEmail = (user, otp) =>
   });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Password Reset Email — separate template with correct copy
+// Password Reset Email
 // ─────────────────────────────────────────────────────────────────────────────
 const sendPasswordResetEmail = (user, otp) =>
   sendEmail({
@@ -89,7 +118,7 @@ const sendPasswordResetEmail = (user, otp) =>
   });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Welcome Email — fire-and-forget (don't block login response)
+// Welcome Email — fire-and-forget
 // ─────────────────────────────────────────────────────────────────────────────
 const sendWelcomeEmail = (user) => {
   sendEmailBg({
@@ -104,7 +133,7 @@ const sendWelcomeEmail = (user) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Purchase Confirmation — fire-and-forget (enrollment already done)
+// Purchase Confirmation — fire-and-forget
 // ─────────────────────────────────────────────────────────────────────────────
 const sendPurchaseConfirmationEmail = (user, course, transaction) => {
   sendEmailBg({
