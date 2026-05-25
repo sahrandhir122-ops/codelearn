@@ -117,6 +117,9 @@ exports.forgotPassword = async (req, res, next) => {
   const otp = user.generateOTP();
   await user.save({ validateBeforeSave: false });
 
+  // ── DEV HELPER: log OTP in Render logs so you can copy it ───────────────
+  console.log(`[forgotPassword] OTP for ${user.email} → ${otp}`);
+
   // Respond immediately — don't block on SMTP
   res.json({ status: "success", message: "Password reset OTP sent to your email." });
 
