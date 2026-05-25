@@ -164,14 +164,15 @@ const getTransporter = () => {
     host:    process.env.EMAIL_HOST || "smtp.gmail.com",
     port:    Number(process.env.EMAIL_PORT) || 587,
     secure:  Number(process.env.EMAIL_PORT) === 465,
+    family:  4, // Force IPv4 — fixes ENETUNREACH on Render
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS,
     },
     tls:               { rejectUnauthorized: false },
-    connectionTimeout: 10_000,
-    greetingTimeout:   10_000,
-    socketTimeout:     15_000,
+    connectionTimeout: 30_000,
+    greetingTimeout:   30_000,
+    socketTimeout:     30_000,
     pool:              true,
     maxConnections:    3,
   });
