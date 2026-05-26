@@ -2,6 +2,8 @@ const User = require("../models/User.model");
 const Course = require("../models/Course.model");
 const Transaction = require("../models/Transaction.model");
 const Comment = require("../models/Comment.model");
+const AppError = require("../utils/AppError");
+const { sendAnnouncementEmail } = require("../services/email.service");
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/admin/stats
@@ -216,6 +218,73 @@ exports.getPendingComments = async (req, res) => {
     .sort("-createdAt")
     .limit(50);
   res.json({ status: "success", data: { comments } });
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/admin/reviews   (all reviews across all courses)
+// ─────────────────────────────────────────────────────────────────────────────
+exports.getReviews = async (req, res) => {
+  const courses = await Course.find({ "reviews.0": { $exists: true } })
+    .select("title reviews")
+    .populate("reviews.user", "name avatar");
+
+  const allReviews = [];
+  courses.forEach((course) => {
+    (course.reviews || []).forEach((rev) => {
+      allReviews.push({
+        _id:         rev._id,
+        courseId:    course._id,
+        courseTitle: course.title,
+        user:        rev.user,
+        rating:      rev.rating,
+        comment:     rev.comment,
+        createdAt:   rev.createdAt,
+      });
+    });
+  });
+
+  allReviews.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  res.json({ status: "success", data: { reviews: allReviews } });
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DELETE /api/admin/reviews/:courseId/:reviewId
+// ─────────────────────────────────────────────────────────────────────────────
+exports.deleteReview = async (req, res, next) => {
+  const { courseId, reviewId } = req.params;
+  const course = await Course.findById(courseId);
+  if (!course) return next(new AppError("Course not found.", 404));
+
+  course.reviews.pull({ _id: reviewId });
+  course.calcAverageRating();
+  await course.save();
+
+  res.status(204).json({ status: "success", data: null });
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/admin/announcements   — email all verified users
+// Body: { subject, message }
+// ─────────────────────────────────────────────────────────────────────────────
+exports.sendAnnouncement = async (req, res, next) => {
+  const { subject, message } = req.body;
+  if (!subject?.trim() || !message?.trim())
+    return next(new AppError("Subject and message are required.", 400));
+
+  const users = await User.find({ isVerified: true }).select("email name").lean();
+
+  // Fire-and-forget for every user — never block the response
+  let queued = 0;
+  for (const user of users) {
+    sendAnnouncementEmail(user, subject.trim(), message.trim());
+    queued++;
+  }
+
+  res.json({
+    status:  "success",
+    message: `Announcement queued for ${queued} users.`,
+    data:    { userCount: queued },
+  });
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

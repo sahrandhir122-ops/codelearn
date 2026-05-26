@@ -25,4 +25,11 @@ router.get("/revenue/daily", adminController.getDailyRevenue);
 router.get("/revenue/monthly", adminController.getMonthlyRevenue);
 router.get("/revenue/yearly", adminController.getYearlyRevenue);
 
+// Reviews
+router.get("/reviews", adminController.getReviews);
+router.delete("/reviews/:courseId/:reviewId", adminController.deleteReview);
+
+// Announcements
+router.post("/announcements", adminController.sendAnnouncement);
+
 module.exports = router;

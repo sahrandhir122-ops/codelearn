@@ -7,7 +7,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import useAuthStore from "../store/useAuthStore";
-import { adminAPI, courseAPI, paymentAPI, uploadAPI } from "../api";
+import { adminAPI, courseAPI, paymentAPI, uploadAPI, couponAPI } from "../api";
 
 // ─── Design Tokens ─────────────────────────────────────────────────────────
 const T = {
@@ -681,6 +681,517 @@ function SettingsPage({ notify }) {
   );
 }
 
+// ─── Analytics Page ────────────────────────────────────────────────────────
+function AnalyticsPage() {
+  const { data: stats, isLoading: statsLoading } = useQuery({
+    queryKey: ["admin-stats"],
+    queryFn: () => adminAPI.getStats().then((r) => r.data.data),
+    staleTime: 30_000,
+  });
+  const { data: monthly = [], isLoading: mLoading } = useQuery({
+    queryKey: ["admin-monthly-revenue"],
+    queryFn: () => adminAPI.getMonthlyRevenue().then((r) => r.data.data.monthly),
+    staleTime: 60_000,
+  });
+  const { data: daily = [], isLoading: dLoading } = useQuery({
+    queryKey: ["admin-daily-revenue"],
+    queryFn: () => adminAPI.getDailyRevenue().then((r) => r.data.data.daily),
+    staleTime: 60_000,
+  });
+  const { data: yearly = [] } = useQuery({
+    queryKey: ["admin-yearly-revenue"],
+    queryFn: () => adminAPI.getYearlyRevenue().then((r) => r.data.data.yearly),
+    staleTime: 120_000,
+  });
+
+  if (statsLoading || mLoading || dLoading) return <Spinner />;
+
+  const monthlyChart = monthly.map((m) => ({
+    month: m.month?.split(" ")[0] || m.month,
+    revenue: m.revenue,
+    orders: m.count,
+  }));
+  const dailyChart = daily.map((d) => ({ day: d.date, revenue: d.revenue, orders: d.count }));
+
+  // Pie: top 5 courses by revenue (using topCourses enrolled count as proxy)
+  const COLORS = [T.primary, T.accent, T.green, T.amber, T.purple];
+  const pieData = (stats?.topCourses || []).slice(0, 5).map((c) => ({
+    name: c.title.length > 18 ? c.title.slice(0, 18) + "…" : c.title,
+    value: c.totalStudents || 0,
+  }));
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      {/* KPI row */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16 }}>
+        <StatCard icon="💰" label="Total Revenue" value={fmtK(stats?.totalRevenue || 0)} color={T.green} />
+        <StatCard icon="📅" label="This Month" value={fmtK(stats?.monthlyRevenue || 0)} sub={`${stats?.monthlyTransactions || 0} orders`} color={T.primary} />
+        <StatCard icon="🗓️" label="This Year" value={fmtK(stats?.yearlyRevenue || 0)} color={T.accent} />
+        <StatCard icon="📈" label="Avg Order" value={stats?.totalTransactions ? fmtK(Math.round((stats.totalRevenue || 0) / stats.totalTransactions)) : "₹0"} color={T.amber} />
+      </div>
+
+      {/* Monthly revenue */}
+      <div style={{ background: T.bgCard, border: `1px solid ${T.border}`, borderRadius: 16, padding: 24 }}>
+        <h3 style={{ fontSize: 15, fontWeight: 700, color: T.text, marginBottom: 20 }}>Monthly Revenue (last 12 months)</h3>
+        <ResponsiveContainer width="100%" height={240}>
+          <BarChart data={monthlyChart.length ? monthlyChart : [{ month: "–", revenue: 0 }]}>
+            <defs>
+              <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={T.primary} stopOpacity={1} />
+                <stop offset="100%" stopColor={T.accent} stopOpacity={0.8} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
+            <XAxis dataKey="month" stroke={T.textDim} tick={{ fill: T.textMuted, fontSize: 12 }} />
+            <YAxis stroke={T.textDim} tick={{ fill: T.textMuted, fontSize: 11 }} tickFormatter={(v) => `₹${v / 1000}K`} />
+            <Tooltip content={<CustomTooltip />} />
+            <Bar dataKey="revenue" name="revenue" fill="url(#barGrad)" radius={[6, 6, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Daily revenue + pie chart */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 360px", gap: 20 }}>
+        <div style={{ background: T.bgCard, border: `1px solid ${T.border}`, borderRadius: 16, padding: 24 }}>
+          <h3 style={{ fontSize: 15, fontWeight: 700, color: T.text, marginBottom: 20 }}>Daily Revenue (last 30 days)</h3>
+          <ResponsiveContainer width="100%" height={220}>
+            <AreaChart data={dailyChart.length ? dailyChart : [{ day: "–", revenue: 0 }]}>
+              <defs>
+                <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={T.green} stopOpacity={0.35} />
+                  <stop offset="95%" stopColor={T.green} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
+              <XAxis dataKey="day" stroke={T.textDim} tick={{ fill: T.textMuted, fontSize: 10 }} interval="preserveStartEnd" />
+              <YAxis stroke={T.textDim} tick={{ fill: T.textMuted, fontSize: 11 }} tickFormatter={(v) => `₹${v / 1000}K`} />
+              <Tooltip content={<CustomTooltip />} />
+              <Area type="monotone" dataKey="revenue" name="revenue" stroke={T.green} fill="url(#areaGrad)" strokeWidth={2} dot={false} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div style={{ background: T.bgCard, border: `1px solid ${T.border}`, borderRadius: 16, padding: 24 }}>
+          <h3 style={{ fontSize: 15, fontWeight: 700, color: T.text, marginBottom: 20 }}>Top Courses by Enrolments</h3>
+          {pieData.length > 0 ? (
+            <>
+              <ResponsiveContainer width="100%" height={160}>
+                <PieChart>
+                  <Pie data={pieData} cx="50%" cy="50%" innerRadius={45} outerRadius={75} dataKey="value" paddingAngle={3}>
+                    {pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                  </Pie>
+                  <Tooltip formatter={(v, n) => [v + " students", n]} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 10 }}>
+                {pieData.map((d, i) => (
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{ width: 10, height: 10, borderRadius: 3, background: COLORS[i % COLORS.length], flexShrink: 0 }} />
+                    <span style={{ fontSize: 12, color: T.textMuted, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.name}</span>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: T.text }}>{d.value}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <p style={{ color: T.textDim, fontSize: 13 }}>No course data yet.</p>
+          )}
+        </div>
+      </div>
+
+      {/* Yearly table */}
+      {yearly.length > 0 && (
+        <div style={{ background: T.bgCard, border: `1px solid ${T.border}`, borderRadius: 16, padding: 24 }}>
+          <h3 style={{ fontSize: 15, fontWeight: 700, color: T.text, marginBottom: 16 }}>Year-over-Year Revenue</h3>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 14 }}>
+            {yearly.map((y) => (
+              <div key={y.year} style={{ background: T.bgCard2, border: `1px solid ${T.border}`, borderRadius: 12, padding: "14px 16px" }}>
+                <p style={{ fontSize: 12, color: T.textMuted, marginBottom: 4 }}>{y.year}</p>
+                <p style={{ fontSize: 20, fontWeight: 800, color: T.green, fontFamily: "Plus Jakarta Sans, sans-serif" }}>{fmtK(y.revenue)}</p>
+                <p style={{ fontSize: 11, color: T.textDim }}>{y.count} orders</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Coupons Page ──────────────────────────────────────────────────────────
+const EMPTY_COUPON = { code: "", discountType: "percentage", discountValue: "", minPurchase: "0", maxDiscount: "", expiresAt: "", usageLimit: "0", description: "", isActive: true };
+
+function CouponsPage({ notify }) {
+  const qc = useQueryClient();
+  const [showModal, setShowModal] = useState(false);
+  const [editCoupon, setEditCoupon] = useState(null);
+  const [form, setForm] = useState(EMPTY_COUPON);
+
+  const { data: coupons = [], isLoading } = useQuery({
+    queryKey: ["admin-coupons"],
+    queryFn: () => couponAPI.getAll().then((r) => r.data.data.coupons),
+    staleTime: 30_000,
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: (data) => editCoupon ? couponAPI.update(editCoupon._id, data) : couponAPI.create(data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-coupons"] });
+      notify(editCoupon ? "Coupon updated!" : "Coupon created!", "success");
+      setShowModal(false); setEditCoupon(null); setForm(EMPTY_COUPON);
+    },
+    onError: (err) => notify(err.response?.data?.message || "Save failed.", "error"),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id) => couponAPI.delete(id),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-coupons"] }); notify("Coupon deleted.", "info"); },
+    onError: () => notify("Delete failed.", "error"),
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: ({ id, isActive }) => couponAPI.update(id, { isActive }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-coupons"] }); notify("Status updated.", "success"); },
+    onError: () => notify("Update failed.", "error"),
+  });
+
+  const openEdit = (c) => {
+    setEditCoupon(c);
+    setForm({
+      code: c.code, discountType: c.discountType, discountValue: c.discountValue,
+      minPurchase: c.minPurchase ?? 0, maxDiscount: c.maxDiscount ?? "",
+      expiresAt: c.expiresAt ? new Date(c.expiresAt).toISOString().split("T")[0] : "",
+      usageLimit: c.usageLimit ?? 0, description: c.description ?? "", isActive: c.isActive,
+    });
+    setShowModal(true);
+  };
+
+  const handleSave = () => {
+    if (!form.code?.trim()) { notify("Coupon code is required.", "error"); return; }
+    if (!form.discountValue || Number(form.discountValue) <= 0) { notify("Discount value must be > 0.", "error"); return; }
+    if (form.discountType === "percentage" && Number(form.discountValue) > 100) { notify("Percentage discount cannot exceed 100.", "error"); return; }
+    const payload = {
+      code: form.code.trim().toUpperCase(),
+      discountType: form.discountType,
+      discountValue: Number(form.discountValue),
+      minPurchase: Number(form.minPurchase) || 0,
+      maxDiscount: form.maxDiscount ? Number(form.maxDiscount) : undefined,
+      expiresAt: form.expiresAt ? new Date(form.expiresAt).toISOString() : undefined,
+      usageLimit: Number(form.usageLimit) || 0,
+      description: form.description?.trim() || undefined,
+      isActive: form.isActive,
+    };
+    saveMutation.mutate(payload);
+  };
+
+  if (isLoading) return <Spinner />;
+
+  const active = coupons.filter((c) => c.isActive).length;
+  const totalUsed = coupons.reduce((s, c) => s + (c.usedCount || 0), 0);
+
+  return (
+    <div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 24 }}>
+        {[
+          { label: "Total Coupons", value: coupons.length, color: T.primary },
+          { label: "Active", value: active, color: T.green },
+          { label: "Total Redemptions", value: totalUsed, color: T.amber },
+        ].map((s) => (
+          <div key={s.label} style={{ background: T.bgCard, border: `1px solid ${T.border}`, borderRadius: 14, padding: "16px 20px" }}>
+            <p style={{ fontSize: 12, color: T.textMuted, marginBottom: 6 }}>{s.label}</p>
+            <p style={{ fontSize: 22, fontWeight: 800, color: s.color, fontFamily: "Plus Jakarta Sans, sans-serif" }}>{s.value}</p>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
+        <button onClick={() => { setEditCoupon(null); setForm(EMPTY_COUPON); setShowModal(true); }}
+          style={{ background: T.primary, color: "#fff", border: "none", padding: "10px 22px", borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
+          + New Coupon
+        </button>
+      </div>
+
+      <div style={{ background: T.bgCard, border: `1px solid ${T.border}`, borderRadius: 16, overflow: "hidden" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "140px 110px 90px 90px 120px 80px 80px 160px", gap: 12, padding: "12px 20px", background: T.bgCard2, borderBottom: `1px solid ${T.border}` }}>
+          {["Code", "Type", "Value", "Min Buy", "Expires", "Uses", "Active", "Actions"].map((h) => (
+            <span key={h} style={{ fontSize: 11, fontWeight: 700, color: T.textDim, textTransform: "uppercase" }}>{h}</span>
+          ))}
+        </div>
+        {coupons.length === 0 && <div style={{ padding: 40, textAlign: "center", color: T.textDim }}>No coupons yet. Create your first coupon!</div>}
+        {coupons.map((c, i) => (
+          <div key={c._id} style={{ display: "grid", gridTemplateColumns: "140px 110px 90px 90px 120px 80px 80px 160px", gap: 12, padding: "14px 20px", borderBottom: i < coupons.length - 1 ? `1px solid ${T.border}` : "none", alignItems: "center" }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: T.primary, fontFamily: "monospace", letterSpacing: 1 }}>{c.code}</span>
+            <StatusBadge status={c.discountType === "percentage" ? "sent" : "pending"} />
+            <span style={{ fontSize: 14, fontWeight: 600, color: T.text }}>
+              {c.discountType === "percentage" ? `${c.discountValue}%` : `₹${c.discountValue}`}
+              {c.discountType === "percentage" && c.maxDiscount ? <span style={{ fontSize: 10, color: T.textDim }}> (max ₹{c.maxDiscount})</span> : null}
+            </span>
+            <span style={{ fontSize: 13, color: T.textMuted }}>{c.minPurchase ? `₹${c.minPurchase}` : "—"}</span>
+            <span style={{ fontSize: 12, color: c.expiresAt && new Date(c.expiresAt) < new Date() ? T.red : T.textMuted }}>
+              {c.expiresAt ? new Date(c.expiresAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "Never"}
+            </span>
+            <span style={{ fontSize: 13, color: T.textMuted }}>
+              {c.usedCount || 0}{c.usageLimit > 0 ? ` / ${c.usageLimit}` : ""}
+            </span>
+            <button onClick={() => toggleMutation.mutate({ id: c._id, isActive: !c.isActive })}
+              style={{ background: c.isActive ? "rgba(16,185,129,0.15)" : "rgba(100,116,139,0.15)", color: c.isActive ? T.green : T.textMuted, border: "none", padding: "5px 10px", borderRadius: 7, fontSize: 11, cursor: "pointer", fontWeight: 600 }}>
+              {c.isActive ? "Active" : "Off"}
+            </button>
+            <div style={{ display: "flex", gap: 6 }}>
+              <button onClick={() => openEdit(c)}
+                style={{ background: "rgba(59,130,246,0.15)", color: T.primary, border: "none", padding: "5px 10px", borderRadius: 7, fontSize: 11, cursor: "pointer", fontWeight: 600 }}>Edit</button>
+              <button onClick={() => { if (window.confirm(`Delete coupon "${c.code}"?`)) deleteMutation.mutate(c._id); }}
+                style={{ background: "rgba(239,68,68,0.15)", color: T.red, border: "none", padding: "5px 10px", borderRadius: 7, fontSize: 11, cursor: "pointer", fontWeight: 600 }}>Del</button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Create / Edit Modal */}
+      {showModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}
+          onClick={() => setShowModal(false)}>
+          <div style={{ background: T.bgCard, border: `1px solid ${T.border2}`, borderRadius: 20, padding: 32, width: 500, maxHeight: "88vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ fontSize: 20, fontWeight: 800, color: T.text, marginBottom: 24, fontFamily: "Plus Jakarta Sans, sans-serif" }}>
+              {editCoupon ? "Edit Coupon" : "Create New Coupon"}
+            </h3>
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              {/* Code */}
+              <div>
+                <label style={{ fontSize: 12, color: T.textMuted, display: "block", marginBottom: 6 }}>Coupon Code *</label>
+                <input value={form.code} onChange={(e) => setForm((p) => ({ ...p, code: e.target.value.toUpperCase() }))} placeholder="e.g. SAVE20"
+                  style={{ width: "100%", background: T.bgCard2, border: `1px solid ${T.border}`, color: T.text, padding: "10px 14px", borderRadius: 10, fontSize: 14, outline: "none", boxSizing: "border-box", fontFamily: "monospace", letterSpacing: 2 }} />
+              </div>
+              {/* Type + Value */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div>
+                  <label style={{ fontSize: 12, color: T.textMuted, display: "block", marginBottom: 6 }}>Discount Type *</label>
+                  <select value={form.discountType} onChange={(e) => setForm((p) => ({ ...p, discountType: e.target.value }))}
+                    style={{ width: "100%", background: T.bgCard2, border: `1px solid ${T.border}`, color: T.text, padding: "10px 14px", borderRadius: 10, fontSize: 14, outline: "none", cursor: "pointer" }}>
+                    <option value="percentage">Percentage (%)</option>
+                    <option value="flat">Flat Amount (₹)</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, color: T.textMuted, display: "block", marginBottom: 6 }}>Discount Value *</label>
+                  <input type="number" value={form.discountValue} onChange={(e) => setForm((p) => ({ ...p, discountValue: e.target.value }))}
+                    placeholder={form.discountType === "percentage" ? "20" : "500"} min="0"
+                    style={{ width: "100%", background: T.bgCard2, border: `1px solid ${T.border}`, color: T.text, padding: "10px 14px", borderRadius: 10, fontSize: 14, outline: "none", boxSizing: "border-box" }} />
+                </div>
+              </div>
+              {/* Min purchase + Max discount */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div>
+                  <label style={{ fontSize: 12, color: T.textMuted, display: "block", marginBottom: 6 }}>Min Purchase (₹)</label>
+                  <input type="number" value={form.minPurchase} onChange={(e) => setForm((p) => ({ ...p, minPurchase: e.target.value }))} placeholder="0" min="0"
+                    style={{ width: "100%", background: T.bgCard2, border: `1px solid ${T.border}`, color: T.text, padding: "10px 14px", borderRadius: 10, fontSize: 14, outline: "none", boxSizing: "border-box" }} />
+                </div>
+                {form.discountType === "percentage" && (
+                  <div>
+                    <label style={{ fontSize: 12, color: T.textMuted, display: "block", marginBottom: 6 }}>Max Discount Cap (₹)</label>
+                    <input type="number" value={form.maxDiscount} onChange={(e) => setForm((p) => ({ ...p, maxDiscount: e.target.value }))} placeholder="Optional" min="0"
+                      style={{ width: "100%", background: T.bgCard2, border: `1px solid ${T.border}`, color: T.text, padding: "10px 14px", borderRadius: 10, fontSize: 14, outline: "none", boxSizing: "border-box" }} />
+                  </div>
+                )}
+              </div>
+              {/* Expiry + Usage limit */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div>
+                  <label style={{ fontSize: 12, color: T.textMuted, display: "block", marginBottom: 6 }}>Expiry Date</label>
+                  <input type="date" value={form.expiresAt} onChange={(e) => setForm((p) => ({ ...p, expiresAt: e.target.value }))}
+                    style={{ width: "100%", background: T.bgCard2, border: `1px solid ${T.border}`, color: T.text, padding: "10px 14px", borderRadius: 10, fontSize: 14, outline: "none", boxSizing: "border-box", colorScheme: "dark" }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, color: T.textMuted, display: "block", marginBottom: 6 }}>Usage Limit (0 = unlimited)</label>
+                  <input type="number" value={form.usageLimit} onChange={(e) => setForm((p) => ({ ...p, usageLimit: e.target.value }))} placeholder="0" min="0"
+                    style={{ width: "100%", background: T.bgCard2, border: `1px solid ${T.border}`, color: T.text, padding: "10px 14px", borderRadius: 10, fontSize: 14, outline: "none", boxSizing: "border-box" }} />
+                </div>
+              </div>
+              {/* Description */}
+              <div>
+                <label style={{ fontSize: 12, color: T.textMuted, display: "block", marginBottom: 6 }}>Description (shown to users)</label>
+                <input value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} placeholder="e.g. 20% off on all courses this week!"
+                  style={{ width: "100%", background: T.bgCard2, border: `1px solid ${T.border}`, color: T.text, padding: "10px 14px", borderRadius: 10, fontSize: 14, outline: "none", boxSizing: "border-box" }} />
+              </div>
+              {/* Active */}
+              <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
+                <input type="checkbox" checked={form.isActive} onChange={(e) => setForm((p) => ({ ...p, isActive: e.target.checked }))}
+                  style={{ width: 16, height: 16, accentColor: T.primary }} />
+                <span style={{ fontSize: 14, color: T.text }}>Active (visible to users)</span>
+              </label>
+            </div>
+            <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
+              <button onClick={handleSave} disabled={saveMutation.isPending}
+                style={{ flex: 1, background: T.primary, color: "#fff", border: "none", padding: 12, borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: "pointer", opacity: saveMutation.isPending ? 0.7 : 1 }}>
+                {saveMutation.isPending ? "Saving…" : editCoupon ? "Save Changes" : "Create Coupon"}
+              </button>
+              <button onClick={() => setShowModal(false)}
+                style={{ flex: 1, background: T.bgCard2, color: T.textMuted, border: `1px solid ${T.border}`, padding: 12, borderRadius: 10, fontSize: 14, cursor: "pointer" }}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Reviews Manager Page ──────────────────────────────────────────────────
+function ReviewsPage({ notify }) {
+  const qc = useQueryClient();
+
+  const { data: reviews = [], isLoading } = useQuery({
+    queryKey: ["admin-reviews"],
+    queryFn: () => adminAPI.getReviews().then((r) => r.data.data.reviews),
+    staleTime: 30_000,
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: ({ courseId, reviewId }) => adminAPI.deleteReview(courseId, reviewId),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-reviews"] }); notify("Review deleted.", "info"); },
+    onError: () => notify("Delete failed.", "error"),
+  });
+
+  if (isLoading) return <Spinner />;
+
+  const avgRating = reviews.length
+    ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1)
+    : 0;
+
+  const Stars = ({ rating }) => (
+    <span style={{ color: T.amber, fontSize: 13 }}>
+      {"★".repeat(rating)}{"☆".repeat(5 - rating)}
+      <span style={{ color: T.textMuted, marginLeft: 4, fontWeight: 600 }}>{rating}</span>
+    </span>
+  );
+
+  return (
+    <div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 24 }}>
+        {[
+          { label: "Total Reviews", value: reviews.length, color: T.primary },
+          { label: "Avg Rating", value: `${avgRating} ★`, color: T.amber },
+          { label: "5-Star Reviews", value: reviews.filter((r) => r.rating === 5).length, color: T.green },
+        ].map((s) => (
+          <div key={s.label} style={{ background: T.bgCard, border: `1px solid ${T.border}`, borderRadius: 14, padding: "16px 20px" }}>
+            <p style={{ fontSize: 12, color: T.textMuted, marginBottom: 6 }}>{s.label}</p>
+            <p style={{ fontSize: 22, fontWeight: 800, color: s.color, fontFamily: "Plus Jakarta Sans, sans-serif" }}>{s.value}</p>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ background: T.bgCard, border: `1px solid ${T.border}`, borderRadius: 16, overflow: "hidden" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 160px 100px 1fr 120px 60px", gap: 14, padding: "12px 20px", background: T.bgCard2, borderBottom: `1px solid ${T.border}` }}>
+          {["Course", "Student", "Rating", "Comment", "Date", ""].map((h) => (
+            <span key={h} style={{ fontSize: 11, fontWeight: 700, color: T.textDim, textTransform: "uppercase" }}>{h}</span>
+          ))}
+        </div>
+        {reviews.length === 0 && (
+          <div style={{ padding: 40, textAlign: "center", color: T.textDim }}>No reviews yet.</div>
+        )}
+        {reviews.map((r, i) => (
+          <div key={r._id} style={{ display: "grid", gridTemplateColumns: "1fr 160px 100px 1fr 120px 60px", gap: 14, padding: "14px 20px", borderBottom: i < reviews.length - 1 ? `1px solid ${T.border}` : "none", alignItems: "center" }}>
+            <span style={{ fontSize: 13, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.courseTitle}</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              {r.user?.avatar
+                ? <img src={r.user.avatar} alt="" style={{ width: 26, height: 26, borderRadius: "50%", objectFit: "cover" }} />
+                : <div style={{ width: 26, height: 26, borderRadius: "50%", background: `${T.primary}25`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: T.primary }}>{r.user?.name?.slice(0, 2).toUpperCase() || "?"}</div>}
+              <span style={{ fontSize: 12, color: T.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.user?.name || "Anonymous"}</span>
+            </div>
+            <Stars rating={r.rating} />
+            <span style={{ fontSize: 12, color: T.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.comment || <em>No comment</em>}</span>
+            <span style={{ fontSize: 11, color: T.textDim }}>{new Date(r.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</span>
+            <button onClick={() => { if (window.confirm("Delete this review?")) deleteMutation.mutate({ courseId: r.courseId, reviewId: r._id }); }}
+              style={{ background: "rgba(239,68,68,0.15)", color: T.red, border: "none", padding: "5px 10px", borderRadius: 7, fontSize: 11, cursor: "pointer", fontWeight: 600 }}>Del</button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Announcements Page ────────────────────────────────────────────────────
+function AnnouncementsPage({ notify }) {
+  const [subject, setSubject] = useState("");
+  const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
+  const [lastResult, setLastResult] = useState(null);
+
+  const handleSend = async () => {
+    if (!subject.trim()) { notify("Subject is required.", "error"); return; }
+    if (!message.trim()) { notify("Message is required.", "error"); return; }
+    if (!window.confirm(`Send this announcement to all verified users?\n\nSubject: ${subject}`)) return;
+    setSending(true);
+    try {
+      const res = await adminAPI.sendAnnouncement({ subject: subject.trim(), message: message.trim() });
+      setLastResult(res.data);
+      notify(`✅ Queued for ${res.data.data.userCount} users!`, "success");
+      setSubject(""); setMessage("");
+    } catch (err) {
+      notify(err.response?.data?.message || "Send failed.", "error");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const previewHtml = message
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/\n/g, "<br/>");
+
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 400px", gap: 20, alignItems: "start" }}>
+      {/* Compose */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+        <div style={{ background: T.bgCard, border: `1px solid ${T.border}`, borderRadius: 16, padding: 24 }}>
+          <h3 style={{ fontSize: 16, fontWeight: 700, color: T.text, marginBottom: 20, fontFamily: "Plus Jakarta Sans, sans-serif" }}>📢 Compose Announcement</h3>
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div>
+              <label style={{ fontSize: 12, color: T.textMuted, display: "block", marginBottom: 6 }}>Subject *</label>
+              <input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="e.g. New courses available this week!"
+                style={{ width: "100%", background: T.bgCard2, border: `1px solid ${T.border}`, color: T.text, padding: "11px 14px", borderRadius: 10, fontSize: 14, outline: "none", boxSizing: "border-box" }} />
+            </div>
+            <div>
+              <label style={{ fontSize: 12, color: T.textMuted, display: "block", marginBottom: 6 }}>Message *</label>
+              <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={10}
+                placeholder={"Hi {name},\n\nWe're excited to announce...\n\nHappy Learning,\nCodeLearn Team"}
+                style={{ width: "100%", background: T.bgCard2, border: `1px solid ${T.border}`, color: T.text, padding: "11px 14px", borderRadius: 10, fontSize: 14, outline: "none", resize: "vertical", boxSizing: "border-box", lineHeight: 1.6 }} />
+              <p style={{ fontSize: 11, color: T.textDim, marginTop: 6 }}>Plain text — line breaks are preserved. Will be sent to all verified users.</p>
+            </div>
+            <button onClick={handleSend} disabled={sending}
+              style={{ background: sending ? T.bgCard2 : T.primary, color: sending ? T.textMuted : "#fff", border: "none", padding: "13px 24px", borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: sending ? "not-allowed" : "pointer", transition: "background 0.2s" }}>
+              {sending ? "⏳ Sending…" : "📧 Send to All Users"}
+            </button>
+          </div>
+        </div>
+
+        {lastResult && (
+          <div style={{ background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", borderRadius: 14, padding: 20 }}>
+            <p style={{ color: T.green, fontWeight: 700, fontSize: 14, marginBottom: 4 }}>✅ Announcement Sent!</p>
+            <p style={{ color: T.textMuted, fontSize: 13 }}>{lastResult.message}</p>
+          </div>
+        )}
+      </div>
+
+      {/* Preview */}
+      <div style={{ background: T.bgCard, border: `1px solid ${T.border}`, borderRadius: 16, padding: 24, position: "sticky", top: 20 }}>
+        <h3 style={{ fontSize: 15, fontWeight: 700, color: T.text, marginBottom: 16 }}>Live Preview</h3>
+        <div style={{ background: "#0A0A0F", borderRadius: 12, padding: 24, border: "1px solid rgba(255,255,255,0.06)" }}>
+          <span style={{ fontSize: 20, fontWeight: 900, color: "#E8471A", fontFamily: "Plus Jakarta Sans, sans-serif", letterSpacing: -0.5 }}>CodeLearn</span>
+          <div style={{ marginTop: 20, marginBottom: 8 }}>
+            <p style={{ fontSize: 14, fontWeight: 700, color: "#E2E8F0", marginBottom: 8 }}>📢 {subject || <em style={{ color: "#334155" }}>Subject preview…</em>}</p>
+            <div style={{ fontSize: 13, color: "rgba(255,255,255,0.6)", lineHeight: 1.8 }}
+              dangerouslySetInnerHTML={{ __html: previewHtml || '<em style="color:#334155">Message preview…</em>' }} />
+          </div>
+          <div style={{ marginTop: 20, paddingTop: 14, borderTop: "1px solid rgba(255,255,255,0.07)", fontSize: 11, color: "rgba(255,255,255,0.2)" }}>
+            © {new Date().getFullYear()} CodeLearn. All rights reserved.
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Admin Dashboard ──────────────────────────────────────────────────
 export default function AdminDashboard() {
   const { user, logout } = useAuthStore();
@@ -704,24 +1215,39 @@ export default function AdminDashboard() {
   if (!user || user.role !== "admin") return null;
 
   const navItems = [
-    { id: "dashboard", icon: "⊞", label: "Dashboard" },
-    { id: "courses", icon: "📚", label: "Courses" },
-    { id: "users", icon: "👥", label: "Users" },
-    { id: "transactions", icon: "💳", label: "Transactions" },
-    { id: "settings", icon: "⚙️", label: "Settings" },
+    { id: "dashboard",      icon: "⊞",  label: "Dashboard" },
+    { id: "courses",        icon: "📚", label: "Courses" },
+    { id: "users",          icon: "👥", label: "Users" },
+    { id: "transactions",   icon: "💳", label: "Transactions" },
+    { id: "analytics",      icon: "📊", label: "Analytics" },
+    { id: "coupons",        icon: "🎟️", label: "Coupons" },
+    { id: "reviews",        icon: "⭐", label: "Reviews" },
+    { id: "announcements",  icon: "📢", label: "Announcements" },
+    { id: "settings",       icon: "⚙️", label: "Settings" },
   ];
 
   const pageMap = {
-    dashboard: <DashboardPage />,
-    courses: <CoursesPage notify={notify} />,
-    users: <UsersPage notify={notify} />,
-    transactions: <TransactionsPage notify={notify} />,
-    settings: <SettingsPage notify={notify} />,
+    dashboard:     <DashboardPage />,
+    courses:       <CoursesPage notify={notify} />,
+    users:         <UsersPage notify={notify} />,
+    transactions:  <TransactionsPage notify={notify} />,
+    analytics:     <AnalyticsPage />,
+    coupons:       <CouponsPage notify={notify} />,
+    reviews:       <ReviewsPage notify={notify} />,
+    announcements: <AnnouncementsPage notify={notify} />,
+    settings:      <SettingsPage notify={notify} />,
   };
 
   const pageTitles = {
-    dashboard: "Overview", courses: "Course Management",
-    users: "User Management", transactions: "Payments & Transactions", settings: "Settings",
+    dashboard:     "Overview",
+    courses:       "Course Management",
+    users:         "User Management",
+    transactions:  "Payments & Transactions",
+    analytics:     "Revenue Analytics",
+    coupons:       "Coupons & Discounts",
+    reviews:       "Reviews Manager",
+    announcements: "Announcements",
+    settings:      "Settings",
   };
 
   const notifColors = { success: T.green, error: T.red, info: T.primary };

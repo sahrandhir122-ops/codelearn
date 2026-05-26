@@ -368,10 +368,31 @@ const sendAdminPurchaseNotification = (user, transactions) => {
   });
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Announcement Email — fire-and-forget
+// ─────────────────────────────────────────────────────────────────────────────
+const sendAnnouncementEmail = (user, subject, message) =>
+  sendEmailBg({
+    to:      user.email,
+    subject,
+    html: wrap(`
+      <h2 style="font-size:20px;font-weight:800;margin-bottom:12px">📢 ${subject}</h2>
+      <div style="color:rgba(255,255,255,0.7);line-height:1.8;font-size:14px">${
+        message
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/\n/g, "<br/>")
+      }</div>
+      ${btn(process.env.FRONTEND_URL || "#", "Visit CodeLearn →")}
+    `),
+  });
+
 module.exports = {
   sendOTPEmail,
   sendPasswordResetEmail,
   sendWelcomeEmail,
   sendPurchaseConfirmationEmail,
   sendAdminPurchaseNotification,
+  sendAnnouncementEmail,
 };

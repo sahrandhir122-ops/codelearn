@@ -100,4 +100,18 @@ export const adminAPI = {
   getMonthlyRevenue: () => api.get("/admin/revenue/monthly"),
   getYearlyRevenue: () => api.get("/admin/revenue/yearly"),
   getAllTransactions: (params) => api.get("/payments/admin/all", { params }),
+  // Reviews
+  getReviews: () => api.get("/admin/reviews"),
+  deleteReview: (courseId, reviewId) => api.delete(`/admin/reviews/${courseId}/${reviewId}`),
+  // Announcements
+  sendAnnouncement: (data) => api.post("/admin/announcements", data),
+};
+
+// ── Coupons ────────────────────────────────────────────────────────────────
+export const couponAPI = {
+  getAll:   ()          => api.get("/coupons"),
+  create:   (data)      => api.post("/coupons", data),
+  update:   (id, data)  => api.patch(`/coupons/${id}`, data),
+  delete:   (id)        => api.delete(`/coupons/${id}`),
+  validate: (data)      => api.post("/coupons/validate", data),
 };

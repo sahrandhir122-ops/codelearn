@@ -23,6 +23,7 @@ const cartRoutes    = require("./routes/cart.routes");
 const userRoutes    = require("./routes/user.routes");
 const commentRoutes = require("./routes/comment.routes");
 const adminRoutes   = require("./routes/admin.routes");
+const couponRoutes  = require("./routes/coupon.routes");
 const uploadRoutes  = require("./routes/upload.routes");
 
 // Passport config
@@ -99,6 +100,7 @@ app.use("/api/cart",     cartRoutes);
 app.use("/api/users",    userRoutes);
 app.use("/api/comments", commentRoutes);
 app.use("/api/admin",    adminRoutes);
+app.use("/api/coupons",  couponRoutes);
 app.use("/api/upload",   uploadRoutes);
 
 // ── Error handling ─────────────────────────────────────────────────────────
