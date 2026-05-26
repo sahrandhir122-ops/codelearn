@@ -48,8 +48,8 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center gap-4">
 
         {/* Logo */}
-        <Link to="/" className="flex items-center gap-2.5 flex-shrink-0">
-          <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center font-display font-black text-white text-lg">C</div>
+        <Link to="/" className="flex items-center gap-2.5 flex-shrink-0 cursor-pointer hover:opacity-85 transition-opacity">
+          <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center font-display font-black text-white text-lg select-none">C</div>
           <span className="font-display font-black text-xl text-white hidden sm:block">CodeLearn</span>
         </Link>
 
