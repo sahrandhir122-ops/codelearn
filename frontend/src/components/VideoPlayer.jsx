@@ -27,22 +27,99 @@ function getYouTubeId(url) {
 
 function YouTubePlayer({ src, autoPlay }) {
   const videoId = getYouTubeId(src);
+  const iframeRef = useRef(null);
+  const [playing, setPlaying] = useState(!!autoPlay);
+  const [showBtn, setShowBtn] = useState(!autoPlay);
+
   if (!videoId) return (
     <div className="w-full flex items-center justify-center bg-black text-white/40 text-sm" style={{ minHeight: 300 }}>
       Invalid YouTube URL
     </div>
   );
-  const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=${autoPlay ? 1 : 0}&rel=0&modestbranding=1`;
+
+  // controls=0  → hides YouTube's own control bar (share / clock / logo / etc.)
+  // enablejsapi=1 → lets us send play/pause commands via postMessage
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const embedUrl =
+    `https://www.youtube.com/embed/${videoId}` +
+    `?autoplay=${autoPlay ? 1 : 0}&rel=0&modestbranding=1` +
+    `&controls=0&enablejsapi=1&origin=${encodeURIComponent(origin)}`;
+
+  // Send commands to the YouTube iframe
+  const cmd = (fn) =>
+    iframeRef.current?.contentWindow?.postMessage(
+      JSON.stringify({ event: "command", func: fn, args: [] }), "*"
+    );
+
+  // Listen for playerState messages from YouTube
+  useEffect(() => {
+    const onMsg = (e) => {
+      try {
+        const d = JSON.parse(e.data);
+        if (d.info?.playerState === 1) { setPlaying(true);  setShowBtn(false); }
+        if (d.info?.playerState === 2) { setPlaying(false); setShowBtn(true);  }
+      } catch (_) {}
+    };
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+  }, []);
+
+  const toggle = () => {
+    if (playing) { cmd("pauseVideo"); setPlaying(false); setShowBtn(true);  }
+    else         { cmd("playVideo");  setPlaying(true);  setShowBtn(false); }
+  };
+
   return (
-    <div className="w-full bg-black" style={{ aspectRatio: "16/9", maxHeight: "75vh" }}>
+    <div
+      className="w-full bg-black relative group"
+      style={{ aspectRatio: "16/9", maxHeight: "75vh" }}
+    >
       <iframe
+        ref={iframeRef}
         src={embedUrl}
         title="YouTube video"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
         allowFullScreen
-        className="w-full h-full border-0"
+        className="w-full h-full border-0 absolute inset-0"
         style={{ display: "block" }}
       />
+
+      {/* Click anywhere to play / pause */}
+      <div
+        className="absolute inset-0 cursor-pointer"
+        style={{ zIndex: 5 }}
+        onClick={toggle}
+      >
+        {/* Play / Pause button — always shows when paused, fades in on hover when playing */}
+        <div
+          className={`absolute inset-0 flex items-center justify-center transition-opacity duration-200 ${
+            showBtn ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+          }`}
+        >
+          <div style={{
+            width: 64, height: 64, borderRadius: "50%",
+            background: "rgba(0,0,0,0.65)",
+            border: "2px solid rgba(255,255,255,0.25)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            backdropFilter: "blur(6px)",
+            transition: "transform 0.15s, background 0.15s",
+          }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(232,71,26,0.75)"; e.currentTarget.style.transform = "scale(1.08)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(0,0,0,0.65)"; e.currentTarget.style.transform = "scale(1)"; }}
+          >
+            {playing ? (
+              <svg width="22" height="22" fill="white" viewBox="0 0 24 24">
+                <rect x="6" y="4" width="4" height="16" rx="1"/>
+                <rect x="14" y="4" width="4" height="16" rx="1"/>
+              </svg>
+            ) : (
+              <svg width="22" height="22" fill="white" viewBox="0 0 24 24" style={{ marginLeft: 3 }}>
+                <polygon points="5 3 19 12 5 21 5 3"/>
+              </svg>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
