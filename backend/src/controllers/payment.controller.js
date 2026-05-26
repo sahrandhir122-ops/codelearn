@@ -360,9 +360,10 @@ exports.verifyPayment = async (req, res, next) => {
   // Fetch updated user
   const updatedUser = await User.findById(req.user._id).select("-passwordHash -otp");
 
-  // Send emails (non-blocking, skip in mock mode)
+  // Send emails — fire-and-forget (never block the verify response)
+  // Waiting for email was causing Razorpay handler timeouts on slow connections.
   if (!isMock) {
-    const emailPromises = transactions.map((txn) =>
+    transactions.forEach((txn) =>
       sendPurchaseConfirmationEmail(updatedUser, txn.course, txn).catch((err) =>
         console.error("Purchase email failed:", err.message)
       )
@@ -370,7 +371,6 @@ exports.verifyPayment = async (req, res, next) => {
     sendAdminPurchaseNotification(updatedUser, transactions).catch((err) =>
       console.error("Admin notification failed:", err.message)
     );
-    await Promise.allSettled(emailPromises);
   }
 
   res.json({
