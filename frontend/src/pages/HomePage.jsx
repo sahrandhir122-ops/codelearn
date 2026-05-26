@@ -15,11 +15,68 @@ const STATS = [
   { value: "95%",   label: "Placement" },
 ];
 
-const TESTIMONIALS = [
-  { name: "Ankita Sharma", role: "SDE at Amazon",   text: "CodeLearn helped me crack my FAANG interview. The DSA course is unmatched!", avatar: "AS" },
-  { name: "Rohit Mehta",   role: "Freelance Dev",   text: "I went from zero to building full-stack apps in 3 months. Worth every rupee.", avatar: "RM" },
-  { name: "Priya Nair",    role: "ML Engineer",     text: "The ML course covers everything from basics to deployment. Truly industry-grade.", avatar: "PN" },
+const TESTIMONIALS_ROW1 = [
+  { name: "Ankita Sharma",   role: "SDE at Amazon",        rating: 5, text: "CodeLearn helped me crack my FAANG interview. The DSA course is unmatched!", avatar: "AS", color: "#E8471A" },
+  { name: "Rohit Mehta",     role: "Freelance Dev",        rating: 5, text: "I went from zero to building full-stack apps in 3 months. Worth every rupee.", avatar: "RM", color: "#3B82F6" },
+  { name: "Priya Nair",      role: "ML Engineer",          rating: 5, text: "The ML course covers everything from basics to deployment. Truly industry-grade.", avatar: "PN", color: "#10B981" },
+  { name: "Karan Verma",     role: "Backend Developer",    rating: 5, text: "Python + Django course was exactly what I needed for my startup. Highly recommended!", avatar: "KV", color: "#8B5CF6" },
+  { name: "Sneha Patel",     role: "Data Analyst",         rating: 5, text: "The data science roadmap is so well structured. Got placed at a top MNC after this!", avatar: "SP", color: "#F59E0B" },
+  { name: "Arjun Singh",     role: "DevOps Engineer",      rating: 5, text: "Best DevOps course in India. Covered Docker, Kubernetes, CI/CD — everything!", avatar: "AS", color: "#06B6D4" },
+  { name: "Meera Joshi",     role: "Frontend Developer",   rating: 5, text: "React and Next.js courses are so practical. Built 3 projects and got hired!", avatar: "MJ", color: "#EC4899" },
 ];
+
+const TESTIMONIALS_ROW2 = [
+  { name: "Vikram Rao",      role: "SDE-2 at Google",     rating: 5, text: "The system design course alone is worth ₹10,000. Got it for ₹999. Insane value.", avatar: "VR", color: "#E8471A" },
+  { name: "Pooja Agarwal",   role: "AI Researcher",        rating: 5, text: "Best investment I made in 2024. The Gen AI course is ahead of every platform.", avatar: "PA", color: "#3B82F6" },
+  { name: "Rahul Gupta",     role: "Startup Founder",      rating: 5, text: "Learned full-stack in 45 days and launched my SaaS. CodeLearn is a gem!", avatar: "RG", color: "#10B981" },
+  { name: "Divya Menon",     role: "Product Manager",      rating: 5, text: "SQL and analytics course helped me transition from ops to PM. Life-changing.", avatar: "DM", color: "#8B5CF6" },
+  { name: "Amit Tiwari",     role: "Cloud Architect",      rating: 5, text: "AWS course content is up-to-date and the assignments are real-world. Love it!", avatar: "AT", color: "#F59E0B" },
+  { name: "Riya Sharma",     role: "Mobile Developer",     rating: 5, text: "React Native course is brilliant. Released my first app on Play Store after Week 4!", avatar: "RS", color: "#06B6D4" },
+  { name: "Sachin Kumar",    role: "Cybersecurity Analyst", rating: 5, text: "The ethical hacking course is comprehensive and taught by a real industry pro.", avatar: "SK", color: "#EC4899" },
+];
+
+// ── Single testimonial card ─────────────────────────────────────────────────
+function TestimonialCard({ t }) {
+  return (
+    <div style={{
+      width: 300, flexShrink: 0, margin: "0 8px",
+      background: "#111118", border: "1px solid rgba(255,255,255,0.07)",
+      borderRadius: 16, padding: "20px 22px",
+      cursor: "default",
+      transition: "border-color 0.2s, transform 0.2s",
+    }}
+      onMouseEnter={(e) => { e.currentTarget.style.borderColor = `${t.color}40`; e.currentTarget.style.transform = "translateY(-3px)"; }}
+      onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)"; e.currentTarget.style.transform = "translateY(0)"; }}
+    >
+      {/* Stars */}
+      <div style={{ color: "#F59E0B", fontSize: 13, letterSpacing: 1, marginBottom: 10 }}>
+        {"★".repeat(t.rating)}{"☆".repeat(5 - t.rating)}
+      </div>
+      {/* Quote */}
+      <p style={{ fontSize: 13, color: "rgba(255,255,255,0.65)", lineHeight: 1.65, marginBottom: 16, minHeight: 60 }}>
+        "{t.text}"
+      </p>
+      {/* Author */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{
+          width: 36, height: 36, borderRadius: "50%", flexShrink: 0,
+          background: `${t.color}25`, color: t.color,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 11, fontWeight: 800, letterSpacing: 0.5,
+        }}>
+          {t.avatar}
+        </div>
+        <div>
+          <p style={{ fontSize: 13, fontWeight: 600, color: "#E2E8F0", marginBottom: 1 }}>{t.name}</p>
+          <p style={{ fontSize: 11, color: "rgba(255,255,255,0.35)" }}>{t.role}</p>
+        </div>
+        <div style={{ marginLeft: "auto", fontSize: 10, color: "#10B981", fontWeight: 600, background: "rgba(16,185,129,0.1)", padding: "3px 8px", borderRadius: 5 }}>
+          ✓ Verified
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ── Skeleton card shown while loading ──────────────────────────────────────
 function SkeletonCard() {
@@ -219,25 +276,36 @@ export default function HomePage() {
         )}
       </section>
 
-      {/* ── Testimonials ── */}
-      <section className="border-t border-white/[0.07] bg-white/[0.02] py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <h2 className="section-title text-center mb-2">What our students say</h2>
-          <p className="text-center text-sm text-white/40 mb-10">Real stories from real learners</p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {TESTIMONIALS.map((t) => (
-              <div key={t.name} className="bg-bg-card border border-white/[0.07] rounded-2xl p-6">
-                <p className="text-sm text-white/60 leading-relaxed mb-5">"{t.text}"</p>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-primary/20 text-primary font-bold text-sm flex items-center justify-center flex-shrink-0">
-                    {t.avatar}
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold">{t.name}</p>
-                    <p className="text-xs text-white/40">{t.role}</p>
-                  </div>
-                </div>
-              </div>
+      {/* ── Testimonials — infinite scrolling marquee ── */}
+      <section className="border-t border-white/[0.07] bg-white/[0.02] py-16 overflow-hidden">
+        <style>{`
+          @keyframes marquee-left  { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+          @keyframes marquee-right { from { transform: translateX(-50%); } to { transform: translateX(0); } }
+          .marquee-track-left  { display:flex; width:max-content; animation: marquee-left  38s linear infinite; }
+          .marquee-track-right { display:flex; width:max-content; animation: marquee-right 42s linear infinite; }
+          .marquee-track-left:hover,
+          .marquee-track-right:hover { animation-play-state: paused; }
+        `}</style>
+
+        <div className="max-w-3xl mx-auto px-4 text-center mb-10">
+          <h2 className="section-title mb-2">What our students say</h2>
+          <p className="text-sm text-white/40">Real stories from 1,50,000+ learners across India</p>
+        </div>
+
+        {/* Row 1 — scrolls left */}
+        <div style={{ maskImage: "linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%)" }}>
+          <div className="marquee-track-left">
+            {[...TESTIMONIALS_ROW1, ...TESTIMONIALS_ROW1].map((t, i) => (
+              <TestimonialCard key={i} t={t} />
+            ))}
+          </div>
+        </div>
+
+        {/* Row 2 — scrolls right */}
+        <div className="mt-4" style={{ maskImage: "linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%)" }}>
+          <div className="marquee-track-right">
+            {[...TESTIMONIALS_ROW2, ...TESTIMONIALS_ROW2].map((t, i) => (
+              <TestimonialCard key={i} t={t} />
             ))}
           </div>
         </div>
