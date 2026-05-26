@@ -378,11 +378,29 @@ export default function CourseDetailPage() {
   };
 
   const handleVerifyPayment = async (razorpayResp) => {
-    const verifyRes = await paymentAPI.verify(razorpayResp);
-    if (verifyRes.data.status === "success") {
+    try {
+      const verifyRes = await paymentAPI.verify(razorpayResp);
+      if (verifyRes.data.status === "success") {
+        enrollCourse(course._id);
+        toast.success(`🎉 You're enrolled in ${course.title}!`);
+        setTimeout(() => navigate("/profile"), 1200);
+      }
+    } catch (err) {
+      // Payment succeeded on Razorpay but verify timed out or failed.
+      // Enrollment may still have been saved — ask user to refresh.
+      const msg = err.response?.data?.message || "";
+      if (msg.toLowerCase().includes("signature")) {
+        throw err; // Real signature failure — re-throw so modal shows error
+      }
+      // Timeout / network error: enrollment likely saved, just show a soft warning
+      toast(`⚠️ Payment received! If the page doesn't update, please refresh.`, {
+        duration: 6000,
+        style: { background: "#2a2a2a", color: "#fff", border: "1px solid #f59e0b50" },
+        icon: "💳",
+      });
+      // Still try to enroll locally in case backend succeeded
       enrollCourse(course._id);
-      toast.success(`🎉 You're enrolled in ${course.title}!`);
-      setTimeout(() => navigate("/profile"), 1200);
+      setTimeout(() => navigate("/profile"), 2000);
     }
   };
 
