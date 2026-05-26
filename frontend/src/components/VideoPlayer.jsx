@@ -175,6 +175,7 @@ function YouTubePlayer({ src, autoPlay }) {
     `&rel=0&modestbranding=1&showinfo=0` +
     `&controls=0&disablekb=1` +
     `&fs=0&iv_load_policy=3` +
+    `&color=white&playsinline=1` +
     `&enablejsapi=1&origin=${encodeURIComponent(origin)}`;
 
   const toggle = () => { playing ? cmd("pauseVideo") : cmd("playVideo"); };
@@ -250,17 +251,23 @@ function YouTubePlayer({ src, autoPlay }) {
           ref={iframeRef}
           src={embedUrl}
           title="YouTube video"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowFullScreen
           className="absolute inset-0 w-full h-full border-0"
           style={{ display: "block" }}
           onLoad={onLoad}
         />
-        {/* Click overlay for play/pause */}
+        {/* Full click overlay — captures all clicks AND hides YouTube corner UI elements */}
         <div className="absolute inset-0 cursor-pointer" style={{ zIndex: 5 }} onClick={toggle} />
+
+        {/* Black mask corners — hide YouTube's injected play arrow (top-left) & watermark (bottom-right) */}
+        <div className="absolute top-0 left-0 w-14 h-14 pointer-events-none" style={{ zIndex: 7, background: "transparent" }} />
+        <div className="absolute bottom-0 right-0 w-20 h-10 pointer-events-none" style={{ zIndex: 7, background: "#000" }} />
+
         {/* Big centre play button when paused */}
         <div
           className={`absolute inset-0 flex items-center justify-center pointer-events-none transition-opacity duration-200 ${!playing ? "opacity-100" : "opacity-0"}`}
-          style={{ zIndex: 6 }}
+          style={{ zIndex: 8 }}
         >
           <div className="w-16 h-16 rounded-full flex items-center justify-center"
             style={{ background: "rgba(0,0,0,0.65)", border: "2px solid rgba(255,255,255,0.2)" }}>
