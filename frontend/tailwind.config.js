@@ -9,8 +9,8 @@ export default {
         accent: { DEFAULT: "#F5B731", green: "#2ECC71", blue: "#3B82F6" },
       },
       fontFamily: {
-        sans: ["DM Sans", "sans-serif"],
-        display: ["Syne", "sans-serif"],
+        sans:    ["Inter", "sans-serif"],
+        display: ["Plus Jakarta Sans", "sans-serif"],
       },
     },
   },
