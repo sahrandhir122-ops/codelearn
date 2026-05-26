@@ -181,7 +181,8 @@ export default function LearnPage() {
 
   const [activeLec,   setActiveLec]   = useState(null);
   const [completed,   setCompleted]   = useState({});
-  const [sideOpen,    setSideOpen]    = useState(true);
+  // Open by default on desktop, closed on mobile
+  const [sideOpen,    setSideOpen]    = useState(() => window.innerWidth >= 1024);
   const [ratingModal, setRatingModal] = useState(false);
 
   const videoRef = useRef();
@@ -229,6 +230,8 @@ export default function LearnPage() {
       videoRef.current.pause();
       videoRef.current.currentTime = 0;
     }
+    // Auto-close sidebar on mobile when a lecture is selected
+    if (window.innerWidth < 1024) setSideOpen(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -303,19 +306,50 @@ export default function LearnPage() {
         </div>
         <button
           onClick={() => setSideOpen(p => !p)}
-          className="hidden lg:flex items-center gap-1.5 text-xs text-white/40 hover:text-white/70 transition-colors px-3 py-1.5 rounded-lg border border-white/[0.07] flex-shrink-0"
+          className="flex items-center gap-1.5 text-xs text-white/40 hover:text-white/70 transition-colors px-3 py-1.5 rounded-lg border border-white/[0.07] flex-shrink-0"
         >
-          {sideOpen ? "◀ Hide" : "▶ Show"} Sidebar
+          {/* Mobile: hamburger / X icon */}
+          <span className="lg:hidden text-base leading-none">{sideOpen ? "✕" : "☰"}</span>
+          {/* Desktop: text label */}
+          <span className="hidden lg:inline">{sideOpen ? "◀ Hide" : "▶ Show"} Sidebar</span>
         </button>
       </header>
 
       <div className="flex flex-1 overflow-hidden">
 
-        {/* ── Sidebar ── */}
+        {/* ── Mobile backdrop — tap to close sidebar ── */}
+        {sideOpen && (
+          <div
+            className="fixed inset-0 bg-black/60 z-40 lg:hidden"
+            onClick={() => setSideOpen(false)}
+          />
+        )}
+
+        {/* ── Sidebar ──
+              Mobile  : fixed drawer from left, full height, z-50 (above header)
+              Desktop : in-flow side panel, collapses to w-0                     */}
         <aside
-          className={`${sideOpen ? "w-80" : "w-0"} flex-shrink-0 transition-all duration-300 overflow-hidden bg-[#0D1120] border-r border-white/[0.07] flex flex-col`}
+          className={[
+            "transition-all duration-300 overflow-hidden bg-[#0D1120] border-r border-white/[0.07] flex flex-col",
+            // Mobile: fixed full-height drawer
+            "fixed top-0 left-0 bottom-0 z-50",
+            "w-[85vw] max-w-[320px]",
+            sideOpen ? "translate-x-0" : "-translate-x-full",
+            // Desktop: in-flow panel (overrides fixed)
+            "lg:relative lg:top-auto lg:left-auto lg:bottom-auto lg:z-auto lg:translate-x-0",
+            sideOpen ? "lg:w-80" : "lg:w-0",
+          ].join(" ")}
           style={{ minHeight: 0 }}
         >
+          {/* Mobile close button at top of drawer */}
+          <div className="lg:hidden flex items-center justify-between px-4 py-3 border-b border-white/[0.07] bg-[#0D1120]">
+            <p className="text-sm font-semibold text-white/70">Course Content</p>
+            <button
+              onClick={() => setSideOpen(false)}
+              className="text-white/40 hover:text-white text-xl leading-none transition-colors"
+            >✕</button>
+          </div>
+
           <div className="overflow-y-auto flex-1">
             {sections.map((sec, si) => (
               <div key={sec._id || si}>
