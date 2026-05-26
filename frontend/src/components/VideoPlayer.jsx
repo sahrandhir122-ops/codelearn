@@ -242,10 +242,14 @@ function YouTubePlayer({ src, autoPlay }) {
       onMouseLeave={scheduleHide}
       onClick={() => setPopup(null)}
     >
-      {/* ── Iframe area ── */}
+      {/* ── Iframe area ──
+            height = min(56.25vw, 75vh) ensures the video ALWAYS fills the full screen width.
+            On portrait phones: 56.25vw < 75vh → height = 56.25vw → perfect 16:9, full width.
+            On landscape 20:9 phones: 56.25vw > 75vh → height = 75vh → iframe wider than 16:9,
+            YouTube letter-boxes top/bottom internally → no side black bars.           */}
       <div
-        className={isFs ? "relative flex-1 overflow-hidden" : "relative w-full overflow-hidden"}
-        style={isFs ? {} : { aspectRatio: "16/9" }}
+        className={isFs ? "relative flex-1 overflow-hidden" : "relative w-full overflow-hidden bg-black"}
+        style={isFs ? {} : { height: "min(56.25vw, 75vh)" }}
       >
         <iframe
           ref={iframeRef}
@@ -568,10 +572,11 @@ const HTML5Player = forwardRef(function HTML5Player(
 
   const progress = duration > 0 ? (current / duration) * 100 : 0;
 
-  const wrapStyle  = isFullscreen ? { width: "100vw", height: "100vh", maxHeight: "100vh" } : { maxHeight: "75vh" };
+  // Same logic as YouTube player: fill full width, cap at 75vh so it never overflows screen
+  const wrapStyle  = isFullscreen ? { width: "100vw", height: "100vh", maxHeight: "100vh" } : {};
   const videoStyle = isFullscreen
     ? { width: "100%", height: "100%", maxHeight: "100vh", display: "block", objectFit: "contain" }
-    : { maxHeight: "75vh", display: "block" };
+    : { width: "100%", height: "min(56.25vw, 75vh)", display: "block", objectFit: "contain" };
 
   return (
     <div
