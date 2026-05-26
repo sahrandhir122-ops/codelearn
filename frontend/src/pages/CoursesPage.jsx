@@ -114,8 +114,32 @@ export default function CoursesPage() {
         </select>
       </div>
 
+      {/* Mobile filter pills — full width above the grid */}
+      <div className="lg:hidden flex gap-2 flex-wrap mb-5 overflow-x-auto pb-1">
+        {CATEGORIES.map((cat) => (
+          <button key={cat}
+            onClick={() => { setCategory(cat === "All" ? "" : cat); setPage(1); }}
+            className={`tab-btn text-xs flex-shrink-0 ${(cat === "All" ? !category : category === cat) ? "active" : ""}`}>
+            {cat}
+          </button>
+        ))}
+        {LEVELS.filter(l => l !== "All Levels").map((lv) => (
+          <button key={lv}
+            onClick={() => { setLevel(level === lv ? "" : lv); setPage(1); }}
+            className={`tab-btn text-xs flex-shrink-0 ${level === lv ? "active" : ""}`}>
+            {lv}
+          </button>
+        ))}
+        {hasFilters && (
+          <button onClick={clearFilters}
+            className="tab-btn text-xs flex-shrink-0 text-red-400 border-red-400/30">
+            ✕ Clear
+          </button>
+        )}
+      </div>
+
       <div className="flex gap-8">
-        {/* Sidebar filters — desktop */}
+        {/* Sidebar filters — desktop only */}
         <aside className="w-52 flex-shrink-0 hidden lg:block">
           <div className="sticky top-24 space-y-6">
             <div>
@@ -151,17 +175,6 @@ export default function CoursesPage() {
           </div>
         </aside>
 
-        {/* Mobile filter pills */}
-        <div className="lg:hidden flex gap-2 flex-wrap mb-4 w-full">
-          {CATEGORIES.map((cat) => (
-            <button key={cat}
-              onClick={() => { setCategory(cat === "All" ? "" : cat); setPage(1); }}
-              className={`tab-btn text-xs ${(cat === "All" ? !category : category === cat) ? "active" : ""}`}>
-              {cat}
-            </button>
-          ))}
-        </div>
-
         {/* Course grid */}
         <div className="flex-1 min-w-0">
           {isLoading ? (
@@ -192,7 +205,7 @@ export default function CoursesPage() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                 {courses.map((course) => (
                   <CourseCard key={course._id} course={course} />
                 ))}
