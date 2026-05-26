@@ -558,9 +558,9 @@ export default function CourseBuilder() {
   );
 
   return (
-    <div style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: "DM Sans, sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: "Inter, sans-serif" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; }
         ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
         @keyframes spin { to { transform: rotate(360deg); } }
@@ -572,7 +572,7 @@ export default function CourseBuilder() {
           style={{ background: "none", border: "none", color: T.textMuted, fontSize: 20, cursor: "pointer" }}>←</button>
         <div style={{ flex: 1, minWidth: 0 }}>
           <p style={{ fontSize: 11, color: T.textMuted, textTransform: "uppercase", letterSpacing: 1 }}>Course Builder</p>
-          <h1 style={{ fontSize: 17, fontWeight: 800, color: T.text, fontFamily: "Syne, sans-serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <h1 style={{ fontSize: 17, fontWeight: 800, color: T.text, fontFamily: "Plus Jakarta Sans, sans-serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {course?.title}
           </h1>
         </div>
@@ -614,7 +614,7 @@ export default function CourseBuilder() {
 
         {/* Sections header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-          <h2 style={{ fontSize: 18, fontWeight: 800, color: T.text, fontFamily: "Syne, sans-serif" }}>
+          <h2 style={{ fontSize: 18, fontWeight: 800, color: T.text, fontFamily: "Plus Jakarta Sans, sans-serif" }}>
             Course Content
           </h2>
           <button onClick={() => setAddingSection(true)}

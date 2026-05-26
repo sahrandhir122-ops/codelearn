@@ -54,7 +54,7 @@ const StatCard = ({ icon, label, value, sub, color = T.primary, trend }) => (
       <div style={{ width: 40, height: 40, borderRadius: 12, background: `${color}20`, border: `1px solid ${color}30`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>{icon}</div>
       {trend !== undefined && <span style={{ fontSize: 12, fontWeight: 600, color: trend >= 0 ? T.green : T.red }}>{trend >= 0 ? "↑" : "↓"} {Math.abs(trend)}%</span>}
     </div>
-    <div style={{ fontSize: 26, fontWeight: 800, color: T.text, fontFamily: "Syne, sans-serif", marginBottom: 3 }}>{value}</div>
+    <div style={{ fontSize: 26, fontWeight: 800, color: T.text, fontFamily: "Plus Jakarta Sans, sans-serif", marginBottom: 3 }}>{value}</div>
     <div style={{ fontSize: 13, color: T.textMuted }}>{label}</div>
     {sub && <div style={{ fontSize: 11, color: T.textDim, marginTop: 4 }}>{sub}</div>}
   </div>
@@ -394,7 +394,7 @@ function CoursesPage({ notify }) {
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}
           onClick={() => setShowModal(false)}>
           <div style={{ background: T.bgCard, border: `1px solid ${T.border2}`, borderRadius: 20, padding: 32, width: 520, maxHeight: "85vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ fontSize: 20, fontWeight: 800, color: T.text, marginBottom: 24, fontFamily: "Syne, sans-serif" }}>
+            <h3 style={{ fontSize: 20, fontWeight: 800, color: T.text, marginBottom: 24, fontFamily: "Plus Jakarta Sans, sans-serif" }}>
               {editCourse ? "Edit Course" : "Add New Course"}
             </h3>
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -602,7 +602,7 @@ function TransactionsPage({ notify }) {
         ].map((s) => (
           <div key={s.label} style={{ background: T.bgCard, border: `1px solid ${T.border}`, borderRadius: 14, padding: "16px 20px" }}>
             <p style={{ fontSize: 12, color: T.textMuted, marginBottom: 6 }}>{s.label}</p>
-            <p style={{ fontSize: 22, fontWeight: 800, color: s.color, fontFamily: "Syne, sans-serif" }}>{s.value}</p>
+            <p style={{ fontSize: 22, fontWeight: 800, color: s.color, fontFamily: "Plus Jakarta Sans, sans-serif" }}>{s.value}</p>
           </div>
         ))}
       </div>
@@ -727,9 +727,9 @@ export default function AdminDashboard() {
   const notifColors = { success: T.green, error: T.red, info: T.primary };
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: T.bg, fontFamily: "DM Sans, sans-serif", color: T.text }}>
+    <div style={{ display: "flex", minHeight: "100vh", background: T.bg, fontFamily: "Inter, sans-serif", color: T.text }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; }
         ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
         @keyframes spin { to { transform: rotate(360deg); } }
@@ -739,8 +739,8 @@ export default function AdminDashboard() {
       {/* Sidebar */}
       <div style={{ width: sidebarCollapsed ? 64 : 220, background: T.bgCard, borderRight: `1px solid ${T.border}`, display: "flex", flexDirection: "column", flexShrink: 0, transition: "width 0.25s", overflow: "hidden" }}>
         <div style={{ padding: "20px 16px", borderBottom: `1px solid ${T.border}`, display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 36, height: 36, borderRadius: 10, background: T.primary, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 16, color: "#fff", fontFamily: "Syne, sans-serif", flexShrink: 0 }}>C</div>
-          {!sidebarCollapsed && <span style={{ fontSize: 17, fontWeight: 800, color: T.text, fontFamily: "Syne, sans-serif", whiteSpace: "nowrap" }}>CodeLearn</span>}
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: T.primary, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 16, color: "#fff", fontFamily: "Plus Jakarta Sans, sans-serif", flexShrink: 0 }}>C</div>
+          {!sidebarCollapsed && <span style={{ fontSize: 17, fontWeight: 800, color: T.text, fontFamily: "Plus Jakarta Sans, sans-serif", whiteSpace: "nowrap" }}>CodeLearn</span>}
         </div>
         <nav style={{ flex: 1, padding: "12px 8px", overflowY: "auto" }}>
           {navItems.map((item) => (
@@ -769,7 +769,7 @@ export default function AdminDashboard() {
         <header style={{ background: T.bgCard, borderBottom: `1px solid ${T.border}`, padding: "14px 28px", display: "flex", alignItems: "center", gap: 16, flexShrink: 0 }}>
           <button onClick={() => setSidebarCollapsed((p) => !p)}
             style={{ background: "none", border: "none", color: T.textMuted, fontSize: 20, cursor: "pointer" }}>☰</button>
-          <h1 style={{ fontSize: 18, fontWeight: 700, color: T.text, fontFamily: "Syne, sans-serif" }}>{pageTitles[activePage]}</h1>
+          <h1 style={{ fontSize: 18, fontWeight: 700, color: T.text, fontFamily: "Plus Jakarta Sans, sans-serif" }}>{pageTitles[activePage]}</h1>
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 14 }}>
             <Link to="/" style={{ background: T.bgCard2, border: `1px solid ${T.border}`, color: T.textMuted, padding: "7px 14px", borderRadius: 10, fontSize: 13, textDecoration: "none" }}>
               🏠 View Site
