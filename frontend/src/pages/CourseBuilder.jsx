@@ -27,78 +27,133 @@ const btn = (color = T.primary) => ({
 });
 
 // ─── Video Uploader ─────────────────────────────────────────────────────────
-// Uploads DIRECTLY from browser → Cloudinary (bypasses server memory limits)
-const CLOUD_NAME     = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
-const UPLOAD_PRESET  = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+// Uploads DIRECTLY from browser → Cloudinary using chunked upload (50 MB/chunk)
+// Chunked upload handles large files (750 MB+) reliably — avoids single-request drops
+const CLOUD_NAME    = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+const CHUNK_SIZE    = 50 * 1024 * 1024; // 50 MB per chunk
+
+/** Upload one chunk; returns parsed Cloudinary response on success */
+function uploadChunk(chunk, file, chunkStart, chunkEnd, totalSize, uniqueId) {
+  return new Promise((resolve, reject) => {
+    const fd = new FormData();
+    fd.append("file",          new Blob([chunk], { type: file.type }), file.name);
+    fd.append("upload_preset", UPLOAD_PRESET);
+    fd.append("folder",        "codelearn/videos");
+
+    const xhr = new XMLHttpRequest();
+    xhr.addEventListener("load", () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve({ xhr, data: JSON.parse(xhr.responseText) });
+      } else {
+        try {
+          const err = JSON.parse(xhr.responseText);
+          reject(new Error(err.error?.message || `Upload failed (HTTP ${xhr.status})`));
+        } catch {
+          reject(new Error(`Upload failed (HTTP ${xhr.status})`));
+        }
+      }
+    });
+    xhr.addEventListener("error", () => reject(new Error("Network error — check your connection.")));
+    xhr.addEventListener("abort", () => reject(new Error("Upload cancelled.")));
+    xhr.open("POST", `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/video/upload`);
+    xhr.setRequestHeader("X-Unique-Upload-Id", uniqueId);
+    xhr.setRequestHeader("Content-Range",      `bytes ${chunkStart}-${chunkEnd - 1}/${totalSize}`);
+    xhr.send(fd);
+    resolve._xhr = xhr; // expose for progress tracking
+  });
+}
 
 function VideoUploader({ onUploaded, existingUrl }) {
-  const [progress, setProgress] = useState(0);
-  const [phase,    setPhase]    = useState("idle"); // "idle"|"uploading"|"done"
-  const [dragging, setDragging] = useState(false);
-  const inputRef  = useRef();
-  const xhrRef    = useRef(null); // keep XHR so we can abort
+  const [progress,   setProgress]   = useState(0);
+  const [phase,      setPhase]      = useState("idle"); // "idle"|"uploading"|"done"
+  const [chunkInfo,  setChunkInfo]  = useState("");     // "Chunk 3 / 15"
+  const [dragging,   setDragging]   = useState(false);
+  const inputRef    = useRef();
+  const abortedRef  = useRef(false);
 
   const upload = useCallback(async (file) => {
     if (!file) return;
     if (!file.type.startsWith("video/")) {
-      toast.error("Please select a video file (mp4, webm, etc.)");
-      return;
+      toast.error("Please select a video file (mp4, webm, etc.)"); return;
     }
     if (file.size > 2 * 1024 * 1024 * 1024) {
-      toast.error("File too large — maximum 2 GB.");
-      return;
+      toast.error("File too large — maximum 2 GB."); return;
     }
     if (!CLOUD_NAME || !UPLOAD_PRESET) {
-      toast.error("Cloudinary not configured. Check VITE_CLOUDINARY_CLOUD_NAME in .env");
+      toast.error("Cloudinary upload preset not configured. Add VITE_CLOUDINARY_UPLOAD_PRESET to Vercel env vars.");
       return;
     }
 
+    abortedRef.current = false;
     setPhase("uploading");
     setProgress(0);
+    setChunkInfo("");
 
-    const fd = new FormData();
-    fd.append("file",           file);
-    fd.append("upload_preset",  UPLOAD_PRESET);
-    fd.append("folder",         "codelearn/videos");
+    const totalSize  = file.size;
+    const numChunks  = Math.ceil(totalSize / CHUNK_SIZE);
+    const uniqueId   = `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 
     try {
-      // Use native XHR so we get real upload-to-Cloudinary progress
-      const url = await new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhrRef.current = xhr;
+      let lastResult = null;
 
-        xhr.upload.addEventListener("progress", (e) => {
-          if (e.lengthComputable) setProgress(Math.round((e.loaded / e.total) * 100));
-        });
+      for (let i = 0; i < numChunks; i++) {
+        if (abortedRef.current) throw new Error("Upload cancelled.");
 
-        xhr.addEventListener("load", () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            const res = JSON.parse(xhr.responseText);
-            resolve(res.secure_url);
-          } else {
-            try {
-              const err = JSON.parse(xhr.responseText);
-              reject(new Error(err.error?.message || "Upload failed"));
-            } catch {
-              reject(new Error(`Upload failed (HTTP ${xhr.status})`));
+        const chunkStart = i * CHUNK_SIZE;
+        const chunkEnd   = Math.min(chunkStart + CHUNK_SIZE, totalSize);
+        const chunk      = file.slice(chunkStart, chunkEnd);
+
+        setChunkInfo(numChunks > 1 ? `Part ${i + 1} / ${numChunks}` : "");
+
+        // Upload this chunk; track per-chunk XHR progress for the progress bar
+        lastResult = await new Promise((resolve, reject) => {
+          const fd = new FormData();
+          fd.append("file",          new Blob([chunk], { type: file.type }), file.name);
+          fd.append("upload_preset", UPLOAD_PRESET);
+          fd.append("folder",        "codelearn/videos");
+
+          const xhr = new XMLHttpRequest();
+
+          xhr.upload.addEventListener("progress", (e) => {
+            if (e.lengthComputable) {
+              const bytesDone = chunkStart + e.loaded;
+              setProgress(Math.min(99, Math.round((bytesDone / totalSize) * 100)));
             }
-          }
+          });
+
+          xhr.addEventListener("load", () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              resolve(JSON.parse(xhr.responseText));
+            } else {
+              try {
+                const err = JSON.parse(xhr.responseText);
+                reject(new Error(err.error?.message || `HTTP ${xhr.status}`));
+              } catch {
+                reject(new Error(`Upload failed (HTTP ${xhr.status})`));
+              }
+            }
+          });
+          xhr.addEventListener("error", () => reject(new Error("Network error — check your connection and try again.")));
+          xhr.addEventListener("abort", () => reject(new Error("Upload cancelled.")));
+
+          xhr.open("POST", `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/video/upload`);
+          xhr.setRequestHeader("X-Unique-Upload-Id", uniqueId);
+          xhr.setRequestHeader("Content-Range",      `bytes ${chunkStart}-${chunkEnd - 1}/${totalSize}`);
+          xhr.send(fd);
         });
+      }
 
-        xhr.addEventListener("error",  () => reject(new Error("Network error during upload.")));
-        xhr.addEventListener("abort",  () => reject(new Error("Upload cancelled.")));
-
-        xhr.open("POST", `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/video/upload`);
-        xhr.send(fd);
-      });
-
+      setProgress(100);
       setPhase("done");
-      onUploaded(url, Math.round(file.size / 1024 / 1024));
+      setChunkInfo("");
+      onUploaded(lastResult.secure_url, Math.round(file.size / 1024 / 1024));
       toast.success("✅ Video uploaded successfully!");
     } catch (err) {
       setPhase("idle");
       setProgress(0);
-      toast.error(err.message || "Upload failed.");
+      setChunkInfo("");
+      if (!abortedRef.current) toast.error(err.message || "Upload failed.");
     }
   }, [onUploaded]);
 
@@ -146,8 +201,9 @@ function VideoUploader({ onUploaded, existingUrl }) {
           {uploading ? (
             <div>
               <div style={{ fontSize: 28, marginBottom: 8 }}>☁️</div>
-              <p style={{ color: T.text, fontSize: 14, fontWeight: 600, marginBottom: 4 }}>
-                Uploading to Cloudinary… {progress}%
+              <p style={{ color: T.text, fontSize: 14, fontWeight: 600, marginBottom: 2 }}>
+                Uploading… {progress}%
+                {chunkInfo && <span style={{ color: T.textMuted, fontWeight: 400, fontSize: 12 }}> · {chunkInfo}</span>}
               </p>
               <p style={{ color: T.textMuted, fontSize: 12, marginBottom: 10 }}>
                 Please wait — do not close this window
@@ -156,7 +212,7 @@ function VideoUploader({ onUploaded, existingUrl }) {
                 <div style={{
                   width: `${progress}%`, height: "100%",
                   background: `linear-gradient(90deg, ${T.primary}, ${T.green})`,
-                  borderRadius: 99, transition: "width 0.4s ease",
+                  borderRadius: 99, transition: "width 0.3s ease",
                 }} />
               </div>
               <p style={{ color: T.textDim, fontSize: 11, marginTop: 8 }}>{progress}% complete</p>
