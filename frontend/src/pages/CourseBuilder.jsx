@@ -304,9 +304,14 @@ function LectureModal({ lecture, sectionId, courseId, onClose, onSaved }) {
             <input
               value={form.videoUrl}
               onChange={(e) => setForm(p => ({ ...p, videoUrl: e.target.value }))}
-              placeholder="Or paste video URL directly…"
+              placeholder="Or paste YouTube / video URL directly…"
               style={{ width: "100%", background: T.bgCard2, border: `1px solid ${T.border}`, color: T.text, padding: "8px 14px", borderRadius: 8, fontSize: 13, outline: "none", boxSizing: "border-box", marginTop: 8 }}
             />
+            {form.videoUrl && (form.videoUrl.includes("youtube.com") || form.videoUrl.includes("youtu.be")) && (
+              <p style={{ fontSize: 11, color: T.green, marginTop: 4 }}>
+                ✅ YouTube URL detected — will embed as YouTube player
+              </p>
+            )}
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>

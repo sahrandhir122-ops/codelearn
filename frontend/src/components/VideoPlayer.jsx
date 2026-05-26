@@ -1,13 +1,51 @@
 /**
  * VideoPlayer.jsx
- * Custom HTML5 video player with:
- *  - Quality selector  (Auto / 1080p / 720p / 480p / 240p)
- *  - Playback speed    (0.5 × → 2 ×)
- *  - Picture-in-Picture
- *  - Fullscreen
- *  - Custom seekbar, volume, auto-hiding controls
+ * Supports both:
+ *  - YouTube URLs  → renders a YouTube iframe embed
+ *  - Direct video  → custom HTML5 player with speed, PiP, fullscreen, seekbar
  */
 import { useState, useRef, useEffect, useCallback, forwardRef } from "react";
+
+// ── YouTube URL detection & embed ────────────────────────────────────────────
+function getYouTubeId(url) {
+  if (!url) return null;
+  try {
+    const u = new URL(url);
+    // youtu.be/ID
+    if (u.hostname === "youtu.be") return u.pathname.slice(1).split("?")[0];
+    // youtube.com/watch?v=ID
+    if (u.hostname.includes("youtube.com")) {
+      if (u.pathname === "/watch") return u.searchParams.get("v");
+      // youtube.com/embed/ID
+      if (u.pathname.startsWith("/embed/")) return u.pathname.split("/embed/")[1].split("?")[0];
+      // youtube.com/shorts/ID
+      if (u.pathname.startsWith("/shorts/")) return u.pathname.split("/shorts/")[1].split("?")[0];
+    }
+  } catch (_) {}
+  return null;
+}
+
+function YouTubePlayer({ src, autoPlay }) {
+  const videoId = getYouTubeId(src);
+  if (!videoId) return (
+    <div className="w-full flex items-center justify-center bg-black text-white/40 text-sm" style={{ minHeight: 300 }}>
+      Invalid YouTube URL
+    </div>
+  );
+  const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=${autoPlay ? 1 : 0}&rel=0&modestbranding=1`;
+  return (
+    <div className="w-full bg-black" style={{ aspectRatio: "16/9", maxHeight: "75vh" }}>
+      <iframe
+        src={embedUrl}
+        title="YouTube video"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allowFullScreen
+        className="w-full h-full border-0"
+        style={{ display: "block" }}
+      />
+    </div>
+  );
+}
 
 const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
 const QUALITIES = [
@@ -34,6 +72,11 @@ const VideoPlayer = forwardRef(function VideoPlayer(
   { src, onEnded, onError, autoPlay = true },
   forwardedRef
 ) {
+  // ── YouTube: render iframe, skip all HTML5 logic ─────────────────────────
+  if (getYouTubeId(src)) {
+    return <YouTubePlayer src={src} autoPlay={autoPlay} />;
+  }
+
   // internal ref — we also forward it so LearnPage can call .pause() / reset currentTime
   const internalRef = useRef(null);
   const videoRef    = forwardedRef || internalRef;
