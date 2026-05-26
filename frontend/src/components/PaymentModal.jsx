@@ -99,8 +99,9 @@ export default function PaymentModal({ isOpen, onClose, orderData, user, descrip
           });
           onClose();
         } catch {
-          toast.error("Payment verification failed. Contact support.");
+          // onVerify handles all error/timeout cases internally — just close modal
           setBusy(false);
+          onClose();
         }
       },
       modal: { ondismiss: () => setBusy(false), escape: true },
