@@ -230,10 +230,10 @@ function OneDriveEmbedPlayer({ src }) {
         frameBorder="0"
         scrolling="no"
       />
-      {/* Block the "Open in browser" button (bottom-right of the player controls) */}
+      {/* Block "Open in browser" + "Fullscreen" buttons (bottom-right controls) */}
       <div style={{
         position: "absolute", bottom: 0, right: 0,
-        width: 44, height: 44,
+        width: 90, height: 44,
         zIndex: 10, cursor: "default",
         background: "transparent",
       }} />
