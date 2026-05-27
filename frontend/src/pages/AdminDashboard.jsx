@@ -868,7 +868,8 @@ function CouponsPage({ notify }) {
 
   const handleSave = () => {
     if (!form.code?.trim()) { notify("Coupon code is required.", "error"); return; }
-    if (!form.discountValue || Number(form.discountValue) <= 0) { notify("Discount value must be > 0.", "error"); return; }
+    if (!form.discountValue && form.discountValue !== 0) { notify("Please enter a discount value.", "error"); return; }
+    if (Number(form.discountValue) <= 0) { notify("Discount value must be greater than 0.", "error"); return; }
     if (form.discountType === "percentage" && Number(form.discountValue) > 100) { notify("Percentage discount cannot exceed 100.", "error"); return; }
     const payload = {
       code: form.code.trim().toUpperCase(),
@@ -975,7 +976,7 @@ function CouponsPage({ notify }) {
                 <div>
                   <label style={{ fontSize: 12, color: T.textMuted, display: "block", marginBottom: 6 }}>Discount Value *</label>
                   <input type="number" value={form.discountValue} onChange={(e) => setForm((p) => ({ ...p, discountValue: e.target.value }))}
-                    placeholder={form.discountType === "percentage" ? "20" : "500"} min="0"
+                    placeholder={form.discountType === "percentage" ? "e.g. 20" : "e.g. 500"} min="1"
                     style={{ width: "100%", background: T.bgCard2, border: `1px solid ${T.border}`, color: T.text, padding: "10px 14px", borderRadius: 10, fontSize: 14, outline: "none", boxSizing: "border-box" }} />
                 </div>
               </div>
