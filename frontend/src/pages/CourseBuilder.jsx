@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { courseAPI, uploadAPI } from "../api";
-import { isOneDriveUrl } from "../components/VideoPlayer";
+import { isOneDriveUrl, normalizeOneDriveUrl } from "../components/VideoPlayer";
 
 // ─── Design tokens — Purple theme (matches AdminDashboard) ─────────────────
 const T = {
@@ -359,12 +359,36 @@ function LectureModal({ lecture, sectionId, courseId, onClose, onSaved }) {
                   style={{ width: "100%", background: T.bgCard2, border: `1px solid ${T.primary}35`, color: T.text, padding: "10px 14px", borderRadius: 8, fontSize: 13, outline: "none", boxSizing: "border-box" }}
                 />
                 {/* URL status */}
-                {form.videoUrl && isOneDriveUrl(form.videoUrl) && (
-                  <p style={{ fontSize: 11, color: T.green, marginTop: 6 }}>
-                    ✅ OneDrive URL detected — will play in built-in video player
+                {form.videoUrl && isOneDriveUrl(form.videoUrl) && !form.videoUrl.includes("/embed") && !form.videoUrl.includes("1drv.ms") && (
+                  <p style={{ fontSize: 11, color: T.green, marginTop: 6, display: "flex", alignItems: "center", gap: 4 }}>
+                    ✅ OneDrive download URL detected — will stream in built-in player
                   </p>
                 )}
-                {form.videoUrl && !isOneDriveUrl(form.videoUrl) && !form.videoUrl.includes("youtube") && (
+                {/* Auto-fix: embed → download */}
+                {form.videoUrl && isOneDriveUrl(form.videoUrl) && form.videoUrl.includes("/embed") && (
+                  <div style={{ marginTop: 6, padding: "7px 10px", background: "rgba(16,185,129,0.08)", borderRadius: 8, border: "1px solid rgba(16,185,129,0.2)" }}>
+                    <p style={{ fontSize: 11, color: T.green, marginBottom: 4 }}>
+                      ⚡ Embed URL detected — click to auto-convert to a download URL:
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setForm(p => ({ ...p, videoUrl: normalizeOneDriveUrl(p.videoUrl) }))}
+                      style={{ fontSize: 11, fontWeight: 700, color: "#fff", background: T.green, border: "none", borderRadius: 6, padding: "4px 12px", cursor: "pointer" }}
+                    >
+                      🔄 Auto-fix URL
+                    </button>
+                  </div>
+                )}
+                {/* 1drv.ms short link warning */}
+                {form.videoUrl && form.videoUrl.includes("1drv.ms") && (
+                  <div style={{ marginTop: 6, padding: "7px 10px", background: "rgba(245,158,11,0.08)", borderRadius: 8, border: "1px solid rgba(245,158,11,0.2)" }}>
+                    <p style={{ fontSize: 11, color: T.amber }}>
+                      ⚠ Short share link (1drv.ms) may not stream in the video player.<br />
+                      Open the link in your browser, click <strong>Download</strong>, right-click → <strong>Copy link address</strong>, and paste that URL instead.
+                    </p>
+                  </div>
+                )}
+                {form.videoUrl && !isOneDriveUrl(form.videoUrl) && !form.videoUrl.includes("youtube") && form.videoUrl.length > 5 && (
                   <p style={{ fontSize: 11, color: T.amber, marginTop: 6 }}>
                     ⚠ Non-OneDrive URL. Make sure it's a direct video/download link.
                   </p>
@@ -374,12 +398,19 @@ function LectureModal({ lecture, sectionId, courseId, onClose, onSaved }) {
                     ⚠ YouTube URL on a paid lecture — toggle "Free Preview" ON if this is a demo.
                   </p>
                 )}
-                <div style={{ marginTop: 10, padding: "8px 10px", background: T.bgCard2, borderRadius: 8, fontSize: 11, color: T.textMuted, lineHeight: 1.7 }}>
-                  <strong style={{ color: T.text }}>How to get an OneDrive download link:</strong><br />
-                  1. Upload video to <strong style={{ color: T.purple }}>OneDrive</strong> (you have 100 GB)<br />
-                  2. Right-click → Share → <strong style={{ color: T.purple }}>Anyone with link</strong><br />
-                  3. Open link in browser → click ⋯ → <strong style={{ color: T.purple }}>Embed</strong><br />
-                  4. Copy the URL that contains <code style={{ color: T.purple }}>download?resid=</code>
+                <div style={{ marginTop: 10, padding: "10px 12px", background: T.bgCard2, borderRadius: 8, fontSize: 11, color: T.textMuted, lineHeight: 1.8 }}>
+                  <strong style={{ color: T.text }}>📋 How to get an OneDrive download link:</strong><br />
+                  <span style={{ color: T.textMuted }}>
+                    1. Upload your video to <strong style={{ color: T.purple }}>OneDrive</strong><br />
+                    2. Right-click the file → <strong style={{ color: T.purple }}>Share</strong> → set to <strong style={{ color: T.purple }}>Anyone with link</strong><br />
+                    3. Open that share link in your browser<br />
+                    4. In the OneDrive viewer, click the <strong style={{ color: T.green }}>Download</strong> button at the top<br />
+                    5. <strong style={{ color: T.green }}>Right-click</strong> the Download button → <strong style={{ color: T.green }}>Copy link address</strong><br />
+                    6. Paste that URL here — it should contain <code style={{ color: T.purple, background: "rgba(139,92,246,0.1)", padding: "1px 5px", borderRadius: 4 }}>download?resid=</code>
+                  </span>
+                  <div style={{ marginTop: 8, padding: "6px 10px", background: "rgba(16,185,129,0.08)", borderRadius: 6, color: "#6EE7B7", fontSize: 10.5 }}>
+                    💡 <strong>Tip:</strong> If you accidentally paste an embed link (<code>/embed?</code>), the player auto-converts it to a download link for you.
+                  </div>
                 </div>
               </div>
             )}

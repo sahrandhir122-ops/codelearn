@@ -59,6 +59,28 @@ export function isOneDriveUrl(url) {
   return false;
 }
 
+/**
+ * Convert a OneDrive embed URL to a direct download URL.
+ * Embed:    https://onedrive.live.com/embed?resid=XXX&authkey=YYY&em=2
+ * Download: https://onedrive.live.com/download?resid=XXX&authkey=YYY
+ * If it's already a download URL or unrecognised, returns as-is.
+ */
+export function normalizeOneDriveUrl(url) {
+  if (!url) return url;
+  try {
+    const u = new URL(url);
+    if (
+      (u.hostname === "onedrive.live.com" || u.hostname === "d.docs.live.net") &&
+      u.pathname.startsWith("/embed")
+    ) {
+      u.pathname = "/download";
+      u.searchParams.delete("em");
+      return u.toString();
+    }
+  } catch (_) {}
+  return url;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Volume icon (shared SVG paths)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -128,6 +150,7 @@ const HTML5Player = forwardRef(function HTML5Player(
   const [ctrlsVis,   setCtrlsVis]    = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [popup,       setPopup]       = useState(null);  // "speed" | "quality" | null
+  const [loadError,   setLoadError]   = useState(false);
 
   // Fullscreen detection
   useEffect(() => {
@@ -278,6 +301,40 @@ const HTML5Player = forwardRef(function HTML5Player(
     ? { width: "100%", height: "100%", maxHeight: "100vh", display: "block", objectFit: "contain" }
     : { width: "100%", height: "min(56.25vw, 75vh)", display: "block", objectFit: "contain" };
 
+  // ── Error overlay — shown when <video> fails to load ──────────────────────
+  if (loadError) {
+    const isOneDrive = isOneDriveUrl(src);
+    return (
+      <div className="w-full flex items-center justify-center bg-black text-center p-8"
+        style={{ minHeight: 300 }}>
+        <div className="max-w-sm">
+          <div className="text-4xl mb-3">{isOneDrive ? "☁️" : "⚠️"}</div>
+          <p className="text-white/70 font-semibold mb-2">
+            {isOneDrive ? "OneDrive video failed to load" : "Video failed to load"}
+          </p>
+          {isOneDrive ? (
+            <div className="text-left text-xs text-white/40 space-y-1.5 mt-3 bg-white/[0.04] rounded-xl p-4">
+              <p className="text-white/60 font-semibold mb-2">Common fixes:</p>
+              <p>• Make sure the OneDrive share is set to <strong className="text-white/70">Anyone with link</strong></p>
+              <p>• Use the <strong className="text-white/70">Download</strong> URL (contains <code className="text-purple-400">download?resid=</code>), not the share or embed link</p>
+              <p>• Open the share link in browser → click <strong className="text-white/70">Download</strong> → right-click → <strong className="text-white/70">Copy link address</strong></p>
+            </div>
+          ) : (
+            <p className="text-xs text-white/30 mt-2">
+              Check the video URL in the Course Builder and make sure it points to a direct video file.
+            </p>
+          )}
+          <button
+            onClick={() => setLoadError(false)}
+            className="mt-4 text-xs text-white/40 hover:text-white underline transition-colors"
+          >
+            Try again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       ref={wrapRef}
@@ -300,7 +357,7 @@ const HTML5Player = forwardRef(function HTML5Player(
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleMetadata}
         onEnded={() => { setPlaying(false); onEnded?.(); }}
-        onError={() => onError?.()}
+        onError={() => { setLoadError(true); onError?.(); }}
         onClick={(e) => { e.stopPropagation(); toggle(); }}
       />
 
@@ -447,13 +504,16 @@ const VideoPlayer = forwardRef(function VideoPlayer(
   { src, onEnded, onError, autoPlay = true },
   forwardedRef
 ) {
-  if (getYouTubeId(src)) {
-    return <YouTubePlayer src={src} autoPlay={autoPlay} />;
+  // Auto-fix OneDrive embed URLs → download URLs so HTML5 <video> can stream them
+  const resolvedSrc = isOneDriveUrl(src) ? normalizeOneDriveUrl(src) : src;
+
+  if (getYouTubeId(resolvedSrc)) {
+    return <YouTubePlayer src={resolvedSrc} autoPlay={autoPlay} />;
   }
   return (
     <HTML5Player
       ref={forwardedRef}
-      src={src}
+      src={resolvedSrc}
       onEnded={onEnded}
       onError={onError}
       autoPlay={autoPlay}
