@@ -267,6 +267,10 @@ function LectureModal({ lecture, sectionId, courseId, onClose, onSaved }) {
     duration:    lecture?.duration    || 0,
     isFree:      lecture?.isFree      || false,
   });
+  // Default to "upload" mode if existing video is from Cloudinary, otherwise "url"
+  const [videoMode, setVideoMode] = useState(
+    lecture?.videoUrl?.includes("cloudinary.com") ? "upload" : "url"
+  );
   const [saving,         setSaving]         = useState(false);
   const [resources,      setResources]      = useState(lecture?.resources || []);
   const [resUploading,   setResUploading]   = useState(false);
@@ -326,11 +330,57 @@ function LectureModal({ lecture, sectionId, courseId, onClose, onSaved }) {
                 background: form.isFree ? "rgba(239,68,68,0.15)" : `${T.primary}22`,
                 color: form.isFree ? "#F87171" : T.purple,
               }}>
-{form.isFree ? "▶ Free → YouTube Unlisted" : "🔒 Paid → YouTube Unlisted (recommended)"}
+                {form.isFree ? "▶ Free → YouTube Unlisted" : "🔒 Paid → YouTube Unlisted (recommended)"}
               </span>
             </div>
 
-            {form.isFree ? (
+            {/* ── Upload vs URL toggle ── */}
+            <div style={{ display: "flex", gap: 0, marginBottom: 12, background: T.bgCard2, borderRadius: 9, padding: 3, border: `1px solid ${T.border}` }}>
+              <button
+                type="button"
+                onClick={() => setVideoMode("upload")}
+                style={{
+                  flex: 1, padding: "7px 12px", borderRadius: 6, fontSize: 12, fontWeight: 600,
+                  cursor: "pointer", border: "none", transition: "all 0.15s",
+                  background: videoMode === "upload" ? T.primary : "transparent",
+                  color: videoMode === "upload" ? "#fff" : T.textMuted,
+                }}
+              >
+                📁 Upload from Computer
+              </button>
+              <button
+                type="button"
+                onClick={() => setVideoMode("url")}
+                style={{
+                  flex: 1, padding: "7px 12px", borderRadius: 6, fontSize: 12, fontWeight: 600,
+                  cursor: "pointer", border: "none", transition: "all 0.15s",
+                  background: videoMode === "url" ? T.primary : "transparent",
+                  color: videoMode === "url" ? "#fff" : T.textMuted,
+                }}
+              >
+                🔗 Paste URL / Link
+              </button>
+            </div>
+
+            {/* ── UPLOAD FROM COMPUTER mode ── */}
+            {videoMode === "upload" ? (
+              <div>
+                <VideoUploader
+                  onUploaded={(url) => setForm(p => ({ ...p, videoUrl: url }))}
+                  existingUrl={form.videoUrl?.includes("cloudinary.com") ? form.videoUrl : null}
+                />
+                {form.videoUrl && form.videoUrl.includes("cloudinary.com") && (
+                  <p style={{ fontSize: 11, color: T.green, marginTop: 4, display: "flex", alignItems: "center", gap: 4 }}>
+                    ✅ Video ready — saved to Cloudinary
+                  </p>
+                )}
+                {form.videoUrl && !form.videoUrl.includes("cloudinary.com") && (
+                  <p style={{ fontSize: 11, color: T.amber, marginTop: 4 }}>
+                    ⚠ Current URL is not a Cloudinary upload. Upload a new file above to replace it.
+                  </p>
+                )}
+              </div>
+            ) : form.isFree ? (
               /* ── FREE LECTURE: YouTube ── */
               <div style={{ background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 12, padding: 14 }}>
                 <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
