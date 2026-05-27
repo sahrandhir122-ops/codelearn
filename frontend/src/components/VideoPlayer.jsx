@@ -223,12 +223,13 @@ function OneDriveEmbedPlayer({ src }) {
       <iframe
         src={embedSrc}
         title="OneDrive video"
-        allow="autoplay; fullscreen"
+        allow="autoplay; fullscreen; picture-in-picture"
         allowFullScreen
         className="w-full h-full border-0"
         style={{ display: "block" }}
         frameBorder="0"
         scrolling="no"
+        sandbox="allow-scripts allow-same-origin allow-presentation allow-pointer-lock"
       />
     </div>
   );
