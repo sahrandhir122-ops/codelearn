@@ -44,6 +44,22 @@ function getYouTubeId(url) {
   return null;
 }
 
+// Extract Google Drive file ID from various Drive URL formats
+export function getGoogleDriveId(url) {
+  if (!url) return null;
+  try {
+    const u = new URL(url);
+    if (u.hostname === "drive.google.com") {
+      // /file/d/FILE_ID/view  or  /file/d/FILE_ID/preview
+      const m = u.pathname.match(/\/file\/d\/([^/]+)/);
+      if (m) return m[1];
+      // /open?id=FILE_ID  or  /uc?id=FILE_ID
+      return u.searchParams.get("id") || null;
+    }
+  } catch (_) {}
+  return null;
+}
+
 // Detect OneDrive / SharePoint URLs — routed to HTML5Player as direct video stream
 export function isOneDriveUrl(url) {
   if (!url) return false;
@@ -146,41 +162,61 @@ function YouTubePlayer({ src, autoPlay }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// OneDrivePlayer — iframe embed using Microsoft's own player (bypasses CORS)
+// OneDrivePlayer — shows a clear "blocked" message (Microsoft blocks all
+// iframe embedding of OneDrive personal files from external domains)
 // ─────────────────────────────────────────────────────────────────────────────
-function OneDrivePlayer({ src }) {
-  const embedUrl = toOneDriveEmbedUrl(src);
-
-  if (!embedUrl) {
-    // 1drv.ms short links can't be converted — show instructions
-    return (
-      <div
-        className="w-full flex items-center justify-center bg-black text-center p-8"
-        style={{ minHeight: 300 }}
-      >
-        <div className="max-w-sm">
-          <div className="text-4xl mb-3">☁️</div>
-          <p className="text-white/70 font-semibold mb-3">
-            Can't embed this OneDrive link
-          </p>
-          <div className="text-left text-xs text-white/40 space-y-1.5 bg-white/[0.04] rounded-xl p-4">
-            <p className="text-white/60 font-semibold mb-2">Short share links (1drv.ms) don't support embedding. Fix:</p>
-            <p>1. Open the OneDrive link in your browser</p>
-            <p>2. Click <strong className="text-white/70">⋯</strong> (more options)</p>
-            <p>3. Click <strong className="text-white/70">Embed</strong></p>
-            <p>4. Copy the <code className="text-purple-400">src="..."</code> URL from the iframe code</p>
-            <p>5. Paste that URL in Course Builder instead</p>
+function OneDrivePlayer() {
+  return (
+    <div
+      className="w-full flex items-center justify-center bg-black text-center p-8"
+      style={{ minHeight: 300 }}
+    >
+      <div className="max-w-md">
+        <div className="text-4xl mb-3">🚫</div>
+        <p className="text-white/80 font-semibold text-base mb-2">
+          OneDrive videos can't be embedded
+        </p>
+        <p className="text-white/40 text-sm mb-5">
+          Microsoft blocks OneDrive from being embedded on external websites.
+          This cannot be bypassed.
+        </p>
+        <div className="text-left text-xs space-y-3 bg-white/[0.04] rounded-xl p-4 border border-white/[0.07]">
+          <p className="text-white/60 font-semibold">✅ Use one of these instead:</p>
+          <div className="space-y-2 text-white/40">
+            <p>
+              <span className="text-red-400 font-bold">▶ YouTube Unlisted</span> — Upload to YouTube, set Unlisted, paste the URL. Free, unlimited, works perfectly.
+            </p>
+            <p>
+              <span className="text-blue-400 font-bold">📁 Google Drive</span> — Upload to Drive, share "Anyone with link", paste the URL. 15 GB free.
+            </p>
           </div>
         </div>
+        <p className="text-white/25 text-xs mt-4">
+          Update this lecture's video URL in the Course Builder.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GoogleDrivePlayer — iframe using Google's own preview player
+// Share the file as "Anyone with link → Viewer" in Google Drive first
+// ─────────────────────────────────────────────────────────────────────────────
+function GoogleDrivePlayer({ src }) {
+  const fileId = getGoogleDriveId(src);
+  if (!fileId) {
+    return (
+      <div className="w-full flex items-center justify-center bg-black text-white/40 text-sm" style={{ minHeight: 300 }}>
+        Invalid Google Drive URL
       </div>
     );
   }
-
   return (
     <div className="w-full bg-black" style={{ aspectRatio: "16/9" }}>
       <iframe
-        src={embedUrl}
-        title="OneDrive video"
+        src={`https://drive.google.com/file/d/${fileId}/preview`}
+        title="Google Drive video"
         allow="autoplay; fullscreen"
         allowFullScreen
         className="w-full h-full border-0"
@@ -567,23 +603,18 @@ const HTML5Player = forwardRef(function HTML5Player(
 // VideoPlayer — pure router, zero hooks, no Rules-of-Hooks violation
 //
 //  Routing logic:
-//    YouTube URL  → YouTubePlayer  (YouTube iframe, no CORS issue)
-//    OneDrive URL → OneDrivePlayer (Microsoft iframe, no CORS issue)
-//    Other URL    → HTML5Player    (custom controls, direct video stream)
+//    YouTube URL      → YouTubePlayer      (YouTube iframe)
+//    Google Drive URL → GoogleDrivePlayer  (Google Drive preview iframe)
+//    OneDrive URL     → OneDrivePlayer     (shows "blocked" error — Microsoft blocks embedding)
+//    Other URL        → HTML5Player        (custom controls, Cloudinary / direct MP4)
 // ─────────────────────────────────────────────────────────────────────────────
 const VideoPlayer = forwardRef(function VideoPlayer(
   { src, onEnded, onError, autoPlay = true },
   forwardedRef
 ) {
-  // YouTube
-  if (getYouTubeId(src)) {
-    return <YouTubePlayer src={src} autoPlay={autoPlay} />;
-  }
-  // OneDrive — use iframe embed to avoid CORS blocking
-  if (isOneDriveUrl(src)) {
-    return <OneDrivePlayer src={src} />;
-  }
-  // Everything else — Cloudinary, direct MP4, etc.
+  if (getYouTubeId(src))      return <YouTubePlayer src={src} autoPlay={autoPlay} />;
+  if (getGoogleDriveId(src))  return <GoogleDrivePlayer src={src} />;
+  if (isOneDriveUrl(src))     return <OneDrivePlayer />;
   return (
     <HTML5Player
       ref={forwardedRef}
