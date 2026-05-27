@@ -3,16 +3,22 @@ import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import useAuthStore from "../store/useAuthStore";
+import useWishlistStore from "../store/useWishlistStore";
 import { userAPI, paymentAPI } from "../api";
 import Loader from "../components/Loader";
 
 export default function ProfilePage() {
   const { user, setUser, logout } = useAuthStore();
+  const { wishlist } = useWishlistStore();
   const navigate = useNavigate();
   const [tab, setTab] = useState("courses");
   const [editMode, setEditMode] = useState(false);
   const [form, setForm] = useState({ name: user?.name || "", bio: user?.bio || "" });
   const [saving, setSaving] = useState(false);
+
+  // Password change state
+  const [pwForm, setPwForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
+  const [pwSaving, setPwSaving] = useState(false);
 
   // ── Enrolled courses ────────────────────────────────────────────────────
   const { data: enrolledData, isLoading: coursesLoading } = useQuery({
@@ -45,6 +51,32 @@ export default function ProfilePage() {
       toast.error("Failed to update profile.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const changePassword = async () => {
+    const { currentPassword, newPassword, confirmPassword } = pwForm;
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      toast.error("Please fill in all password fields.");
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast.error("New password must be at least 6 characters.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error("New passwords do not match.");
+      return;
+    }
+    setPwSaving(true);
+    try {
+      await userAPI.changePassword({ currentPassword, newPassword });
+      toast.success("Password changed successfully! 🔐");
+      setPwForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to change password.");
+    } finally {
+      setPwSaving(false);
     }
   };
 
@@ -123,6 +155,12 @@ export default function ProfilePage() {
               {history.length}
             </div>
             <div className="text-xs text-white/30">Purchases</div>
+          </div>
+          <div className="text-center px-4">
+            <div className="font-display font-black text-2xl text-red-400">
+              {wishlist.length}
+            </div>
+            <div className="text-xs text-white/30">Wishlist</div>
           </div>
           {!editMode && (
             <button className="btn-ghost text-sm py-2" onClick={() => setEditMode(true)}>
@@ -302,6 +340,68 @@ export default function ProfilePage() {
               >
                 {saving ? "Saving…" : "Save Changes"}
               </button>
+            </div>
+          </div>
+
+          {/* Change Password */}
+          <div className="bg-bg-card border border-white/[0.07] rounded-2xl p-6">
+            <h3 className="font-display font-bold text-lg mb-1">Change Password</h3>
+            <p className="text-xs text-white/30 mb-4">
+              Leave blank if you signed up with Google / GitHub.
+            </p>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-medium text-white/40 mb-1.5 block">Current Password</label>
+                <input
+                  className="input"
+                  type="password"
+                  placeholder="••••••••"
+                  value={pwForm.currentPassword}
+                  onChange={(e) => setPwForm((p) => ({ ...p, currentPassword: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-white/40 mb-1.5 block">New Password</label>
+                <input
+                  className="input"
+                  type="password"
+                  placeholder="Min 6 characters"
+                  value={pwForm.newPassword}
+                  onChange={(e) => setPwForm((p) => ({ ...p, newPassword: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-white/40 mb-1.5 block">Confirm New Password</label>
+                <input
+                  className="input"
+                  type="password"
+                  placeholder="Repeat new password"
+                  value={pwForm.confirmPassword}
+                  onChange={(e) => setPwForm((p) => ({ ...p, confirmPassword: e.target.value }))}
+                />
+              </div>
+              <button
+                className="btn-primary text-sm"
+                onClick={changePassword}
+                disabled={pwSaving}
+              >
+                {pwSaving ? "Changing…" : "🔐 Change Password"}
+              </button>
+            </div>
+          </div>
+
+          {/* Quick links */}
+          <div className="bg-bg-card border border-white/[0.07] rounded-2xl p-5">
+            <h3 className="font-display font-bold text-base mb-3">Quick Links</h3>
+            <div className="space-y-2">
+              <Link to="/dashboard"
+                className="flex items-center gap-3 text-sm text-white/60 hover:text-white transition-colors py-1">
+                📚 My Learning Dashboard
+              </Link>
+              <Link to="/wishlist"
+                className="flex items-center gap-3 text-sm text-white/60 hover:text-white transition-colors py-1">
+                ❤️ My Wishlist ({wishlist.length})
+              </Link>
             </div>
           </div>
 

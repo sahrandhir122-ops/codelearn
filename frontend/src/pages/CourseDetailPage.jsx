@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import { courseAPI, commentAPI, paymentAPI } from "../api";
 import useAuthStore from "../store/useAuthStore";
 import useCartStore from "../store/useCartStore";
+import useWishlistStore from "../store/useWishlistStore";
 import Loader from "../components/Loader";
 import PaymentModal from "../components/PaymentModal";
 
@@ -306,6 +307,7 @@ export default function CourseDetailPage() {
   const navigate = useNavigate();
   const { user, enrollCourse } = useAuthStore();
   const { addToCart, isInCart } = useCartStore();
+  const { toggle: toggleWishlist, isWishlisted } = useWishlistStore();
 
   const [activeTab, setActiveTab] = useState("overview");
   const [payModal, setPayModal] = useState({ open: false, orderData: null });
@@ -956,6 +958,30 @@ export default function CourseDetailPage() {
                         {inCart ? "🛒 View Cart" : "🛒 Add to Cart"}
                       </button>
                     </div>
+                  )}
+
+                  {/* Wishlist */}
+                  {!isEnrolled && (
+                    <button
+                      onClick={() => {
+                        if (!user) { navigate("/login?redirect=/courses/" + slug); return; }
+                        const added = toggleWishlist(course);
+                        toast(added ? "❤️ Saved to wishlist" : "💔 Removed from wishlist", {
+                          duration: 1800,
+                          style: { background: "#1a1a2e", color: "#fff", fontSize: "13px" },
+                        });
+                      }}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-white/10 text-sm text-white/50 hover:text-white hover:border-white/20 transition-all mb-5"
+                    >
+                      <svg width="15" height="15" viewBox="0 0 24 24"
+                        fill={course && isWishlisted(course._id) ? "#ef4444" : "none"}
+                        stroke={course && isWishlisted(course._id) ? "#ef4444" : "currentColor"}
+                        strokeWidth={2}
+                      >
+                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                      </svg>
+                      {course && isWishlisted(course._id) ? "Saved to Wishlist" : "Save to Wishlist"}
+                    </button>
                   )}
 
                   {/* Course includes */}

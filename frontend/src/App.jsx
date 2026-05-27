@@ -19,6 +19,8 @@ import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import { OAuthSuccessPage } from "./pages/OAuthSuccessPage";
 import NotFoundPage from "./pages/NotFoundPage";
+import DashboardPage from "./pages/DashboardPage";
+import WishlistPage from "./pages/WishlistPage";
 
 // Layout
 import Navbar from "./components/Navbar";
@@ -105,6 +107,8 @@ export default function App() {
               {/* Protected routes */}
               <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
               <Route path="/cart" element={<ProtectedRoute><CartPage /></ProtectedRoute>} />
+              <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+              <Route path="/wishlist" element={<ProtectedRoute><WishlistPage /></ProtectedRoute>} />
 
               <Route path="*" element={<NotFoundPage />} />
             </Routes>

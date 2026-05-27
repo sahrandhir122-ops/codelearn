@@ -181,9 +181,13 @@ export default function Navbar() {
                       className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-white/70 hover:bg-white/5 hover:text-white transition-colors">
                       👤 My Profile
                     </Link>
-                    <Link to="/profile" onClick={close}
+                    <Link to="/dashboard" onClick={close}
                       className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-white/70 hover:bg-white/5 hover:text-white transition-colors">
-                      📚 My Courses
+                      📚 My Learning
+                    </Link>
+                    <Link to="/wishlist" onClick={close}
+                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-white/70 hover:bg-white/5 hover:text-white transition-colors">
+                      ❤️ Wishlist
                     </Link>
                     <Link to="/cart" onClick={close}
                       className="flex items-center justify-between px-4 py-2.5 text-sm text-white/70 hover:bg-white/5 hover:text-white transition-colors">

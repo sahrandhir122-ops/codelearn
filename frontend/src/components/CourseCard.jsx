@@ -1,6 +1,8 @@
 import { Link, useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
 import useAuthStore from "../store/useAuthStore";
 import useCartStore from "../store/useCartStore";
+import useWishlistStore from "../store/useWishlistStore";
 
 const StarIcon = ({ filled }) => (
   <svg width="12" height="12" viewBox="0 0 24 24"
@@ -12,12 +14,24 @@ const StarIcon = ({ filled }) => (
 export default function CourseCard({ course }) {
   const { user } = useAuthStore();
   const { addToCart, isInCart } = useCartStore();
+  const { toggle, isWishlisted } = useWishlistStore();
   const navigate = useNavigate();
 
   const isEnrolled = user?.enrolledCourses?.some(
     (id) => (id?._id || id)?.toString() === course._id?.toString()
   );
   const inCart = isInCart(course._id);
+  const wishlisted = isWishlisted(course._id);
+
+  const handleWishlist = (e) => {
+    e.preventDefault();
+    if (!user) { navigate("/login"); return; }
+    const added = toggle(course);
+    toast(added ? "❤️ Saved to wishlist" : "💔 Removed from wishlist", {
+      duration: 1800,
+      style: { background: "#1a1a2e", color: "#fff", fontSize: "13px" },
+    });
+  };
   const discount = course.originalPrice > course.price
     ? Math.round(((course.originalPrice - course.price) / course.originalPrice) * 100)
     : 0;
@@ -44,6 +58,20 @@ export default function CourseCard({ course }) {
         <span className="badge absolute top-3 right-3 bg-black/60 text-white/80 text-[10px] border border-white/10">
           {course.level}
         </span>
+        {/* Wishlist heart */}
+        <button
+          onClick={handleWishlist}
+          title={wishlisted ? "Remove from wishlist" : "Save to wishlist"}
+          className="absolute bottom-3 right-3 w-8 h-8 flex items-center justify-center rounded-full bg-black/60 hover:bg-black/80 transition-all shadow-lg"
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24"
+            fill={wishlisted ? "#ef4444" : "none"}
+            stroke={wishlisted ? "#ef4444" : "rgba(255,255,255,0.7)"}
+            strokeWidth={2.2}
+          >
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+          </svg>
+        </button>
         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
           <div className="w-14 h-14 rounded-full bg-primary/90 flex items-center justify-center">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
