@@ -219,7 +219,7 @@ function OneDriveEmbedPlayer({ src }) {
   } catch (_) {}
 
   return (
-    <div className="w-full bg-black" style={{ aspectRatio: "16/9" }}>
+    <div className="w-full bg-black relative" style={{ aspectRatio: "16/9" }}>
       <iframe
         src={embedSrc}
         title="OneDrive video"
@@ -229,8 +229,21 @@ function OneDriveEmbedPlayer({ src }) {
         style={{ display: "block" }}
         frameBorder="0"
         scrolling="no"
-        sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-pointer-lock allow-presentation allow-orientation-lock"
       />
+      {/* Block the "Open in browser" button (bottom-right of the player controls) */}
+      <div style={{
+        position: "absolute", bottom: 0, right: 0,
+        width: 44, height: 44,
+        zIndex: 10, cursor: "default",
+        background: "transparent",
+      }} />
+      {/* Block the "About video / Help" bar at the top-right */}
+      <div style={{
+        position: "absolute", top: 0, right: 0,
+        width: "100%", height: 40,
+        zIndex: 10, cursor: "default",
+        background: "transparent",
+      }} />
     </div>
   );
 }
