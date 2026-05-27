@@ -230,19 +230,19 @@ function OneDriveEmbedPlayer({ src }) {
         frameBorder="0"
         scrolling="no"
       />
-      {/* Block "Open in browser" + "Fullscreen" buttons (bottom-right controls) */}
+      {/* Block right-side buttons: CC / Speed / Settings / Fullscreen / Open-in-browser */}
       <div style={{
         position: "absolute", bottom: 0, right: 0,
-        width: 90, height: 44,
+        width: 220, height: 52,
         zIndex: 10, cursor: "default",
-        background: "transparent",
+        background: "rgba(0,0,0,0.01)",
       }} />
-      {/* Block the "About video / Help" bar at the top-right */}
+      {/* Block top bar: About video / Share / Help */}
       <div style={{
-        position: "absolute", top: 0, right: 0,
-        width: "100%", height: 40,
+        position: "absolute", top: 0, left: 0,
+        width: "100%", height: 48,
         zIndex: 10, cursor: "default",
-        background: "transparent",
+        background: "rgba(0,0,0,0.01)",
       }} />
     </div>
   );
