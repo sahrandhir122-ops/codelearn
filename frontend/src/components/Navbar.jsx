@@ -44,7 +44,52 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="sticky top-0 z-50 glass border-b border-white/[0.07]">
+    <nav className="sticky top-0 z-50 glass border-b border-white/[0.07] relative">
+
+      {/* ── Mobile full-width search overlay ─────────────────────────────────
+           Shows on small screens only when searchOpen is true.
+           Absolute-positioned over the whole navbar so nothing is cramped. */}
+      {searchOpen && (
+        <div className="sm:hidden absolute inset-0 z-20 flex items-center px-3 gap-2"
+          style={{ background: "rgba(10,10,15,0.97)", backdropFilter: "blur(16px)" }}>
+          <form onSubmit={handleSearch} className="flex items-center gap-2 w-full">
+            {/* Input */}
+            <div className="relative flex-1 min-w-0">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none"
+                width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <input
+                ref={searchRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={handleSearchKey}
+                placeholder="Search courses…"
+                className="w-full bg-white/[0.07] border border-white/[0.15] rounded-xl pl-9 pr-3 py-2.5 text-sm text-white placeholder:text-white/35 outline-none focus:border-primary/60 focus:bg-white/[0.10] transition-all"
+              />
+            </div>
+            {/* Search submit */}
+            <button
+              type="submit"
+              disabled={!searchQuery.trim()}
+              className="btn-primary px-4 py-2 text-sm flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Search
+            </button>
+            {/* Close */}
+            <button
+              type="button"
+              onClick={() => { setSearchOpen(false); setSearchQuery(""); }}
+              className="w-9 h-9 flex items-center justify-center rounded-xl text-white/50 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0 text-base font-bold"
+            >
+              ✕
+            </button>
+          </form>
+        </div>
+      )}
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center gap-4">
 
         {/* Logo */}
@@ -67,19 +112,13 @@ export default function Navbar() {
           )}
         </div>
 
-        {/* ── Expanding Search bar ── */}
-        <div className="flex-1 flex items-center justify-center px-2 min-w-0">
+        {/* ── Desktop expanding search bar (sm and above only) ── */}
+        <div className="flex-1 hidden sm:flex items-center justify-center px-2 min-w-0">
           {searchOpen ? (
-            <form
-              onSubmit={handleSearch}
-              className="flex items-center w-full max-w-lg gap-2 animate-fade-in"
-            >
+            <form onSubmit={handleSearch} className="flex items-center w-full max-w-lg gap-2 animate-fade-in">
               <div className="relative flex-1">
-                <svg
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none"
-                  width="15" height="15" viewBox="0 0 24 24" fill="none"
-                  stroke="currentColor" strokeWidth={2.5}
-                >
+                <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none"
+                  width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
                   <circle cx="11" cy="11" r="8" />
                   <line x1="21" y1="21" x2="16.65" y2="16.65" />
                 </svg>
@@ -93,27 +132,17 @@ export default function Navbar() {
                   className="w-full bg-white/[0.06] border border-white/[0.12] rounded-xl pl-9 pr-4 py-2 text-sm text-white placeholder:text-white/30 outline-none focus:border-primary/50 focus:bg-white/[0.08] transition-all"
                 />
               </div>
-              <button
-                type="submit"
-                className="btn-primary px-4 py-2 text-sm flex-shrink-0"
-                disabled={!searchQuery.trim()}
-              >
+              <button type="submit" className="btn-primary px-4 py-2 text-sm flex-shrink-0" disabled={!searchQuery.trim()}>
                 Search
               </button>
-              <button
-                type="button"
-                onClick={() => { setSearchOpen(false); setSearchQuery(""); }}
-                className="w-8 h-8 flex items-center justify-center rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0"
-              >
+              <button type="button" onClick={() => { setSearchOpen(false); setSearchQuery(""); }}
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0">
                 ✕
               </button>
             </form>
           ) : (
-            /* Collapsed search button */
-            <button
-              onClick={() => setSearchOpen(true)}
-              className="hidden sm:flex items-center gap-2 bg-white/[0.05] border border-white/[0.1] rounded-xl px-4 py-2 text-sm text-white/40 hover:text-white/70 hover:bg-white/[0.08] hover:border-white/20 transition-all w-full max-w-xs"
-            >
+            <button onClick={() => setSearchOpen(true)}
+              className="flex items-center gap-2 bg-white/[0.05] border border-white/[0.1] rounded-xl px-4 py-2 text-sm text-white/40 hover:text-white/70 hover:bg-white/[0.08] hover:border-white/20 transition-all w-full max-w-xs">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
                 <circle cx="11" cy="11" r="8" />
                 <line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -125,11 +154,11 @@ export default function Navbar() {
         </div>
 
         {/* Right side */}
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex items-center gap-2 flex-shrink-0 ml-auto sm:ml-0">
 
-          {/* Mobile search icon */}
+          {/* Mobile search icon — opens the overlay */}
           <button
-            onClick={() => setSearchOpen(!searchOpen)}
+            onClick={() => setSearchOpen(true)}
             className="sm:hidden w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors text-white/60"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
