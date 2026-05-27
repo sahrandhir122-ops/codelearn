@@ -36,4 +36,10 @@ const uploadAvatar = multer({
   limits:     { fileSize: 5 * 1024 * 1024 }, // 5 MB
 });
 
-module.exports = { uploadVideo, uploadThumb, uploadAvatar };
+// Raw file upload (ZIP, PDF, DOCX, etc.) — up to 500 MB
+const uploadResource = multer({
+  storage: multer.memoryStorage(),
+  limits:  { fileSize: 500 * 1024 * 1024 }, // 500 MB
+});
+
+module.exports = { uploadVideo, uploadThumb, uploadAvatar, uploadResource };

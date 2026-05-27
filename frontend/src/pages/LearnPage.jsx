@@ -417,7 +417,41 @@ export default function LearnPage() {
                 </div>
 
                 {activeLec.lec.description && (
-                  <p className="text-white/50 leading-relaxed mb-8">{activeLec.lec.description}</p>
+                  <p className="text-white/50 leading-relaxed mb-6">{activeLec.lec.description}</p>
+                )}
+
+                {/* ── Downloadable Resources ── */}
+                {activeLec.lec.resources?.length > 0 && (
+                  <div className="mb-8 p-4 rounded-2xl border border-white/[0.08] bg-white/[0.03]">
+                    <p className="text-sm font-semibold text-white/70 mb-3 flex items-center gap-2">
+                      <span>📎</span> Lecture Resources
+                    </p>
+                    <div className="flex flex-col gap-2">
+                      {activeLec.lec.resources.map((r) => (
+                        <a key={r._id} href={r.url} target="_blank" rel="noopener noreferrer" download
+                          className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/[0.05] hover:bg-white/[0.09] border border-white/[0.07] transition-colors group">
+                          <span className="text-xl">
+                            {["zip","rar","7z"].includes(r.type) ? "🗜️"
+                              : r.type === "pdf" ? "📄"
+                              : ["doc","docx"].includes(r.type) ? "📝"
+                              : ["js","ts","py","html","css","json"].includes(r.type) ? "💻"
+                              : "📎"}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-white/80 group-hover:text-white truncate transition-colors">{r.name}</p>
+                            {r.size > 0 && (
+                              <p className="text-xs text-white/30">
+                                {r.type?.toUpperCase()} · {r.size < 1024*1024
+                                  ? `${(r.size/1024).toFixed(1)} KB`
+                                  : `${(r.size/1024/1024).toFixed(1)} MB`}
+                              </p>
+                            )}
+                          </div>
+                          <span className="text-xs font-semibold text-primary opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">⬇ Download</span>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
                 )}
 
                 {/* Prev / Next */}

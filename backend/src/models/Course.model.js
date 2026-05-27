@@ -1,6 +1,13 @@
 const mongoose = require("mongoose");
 const slugify = require("slugify");
 
+const resourceSchema = new mongoose.Schema({
+  name:    { type: String, required: true },  // display name e.g. "Starter Code.zip"
+  url:     { type: String, required: true },  // Cloudinary raw URL
+  type:    { type: String, default: "file" }, // "zip" | "pdf" | "file" etc.
+  size:    Number,                            // bytes (optional)
+});
+
 const lectureSchema = new mongoose.Schema({
   title: { type: String, required: true },
   description: String,
@@ -8,6 +15,7 @@ const lectureSchema = new mongoose.Schema({
   duration: Number,        // seconds
   isFree: { type: Boolean, default: false },
   order: { type: Number, default: 0 },
+  resources: [resourceSchema],  // downloadable attachments (ZIP, PDF, etc.)
 });
 
 const sectionSchema = new mongoose.Schema({

@@ -35,6 +35,10 @@ export const courseAPI = {
   addLecture:    (id, sid, data)         => api.post(`/courses/${id}/sections/${sid}/lectures`, data),
   updateLecture: (id, sid, lid, data)    => api.put(`/courses/${id}/sections/${sid}/lectures/${lid}`, data),
   deleteLecture: (id, sid, lid)          => api.delete(`/courses/${id}/sections/${sid}/lectures/${lid}`),
+
+  // Resources (ZIP / PDF / etc.)
+  addResource:    (id, sid, lid, data)        => api.post(`/courses/${id}/sections/${sid}/lectures/${lid}/resources`, data),
+  deleteResource: (id, sid, lid, rid)         => api.delete(`/courses/${id}/sections/${sid}/lectures/${lid}/resources/${rid}`),
 };
 
 // ── Upload ─────────────────────────────────────────────────────────────────
@@ -49,6 +53,13 @@ export const uploadAPI = {
   thumbnail: (formData) =>
     api.post("/upload/thumbnail", formData, {
       headers: { "Content-Type": "multipart/form-data" },
+    }),
+  resource: (formData, onProgress) =>
+    api.post("/upload/resource", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+      onUploadProgress: (e) => {
+        if (onProgress) onProgress(Math.round((e.loaded * 100) / e.total));
+      },
     }),
   deleteVideo: (filename) => api.delete(`/upload/video/${filename}`),
 };

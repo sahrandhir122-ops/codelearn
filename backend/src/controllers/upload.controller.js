@@ -101,6 +101,35 @@ exports.uploadAvatar = async (req, res) => {
   }
 };
 
+// ── POST /api/upload/resource ─────────────────────────────────────────────
+// Uploads ZIP, PDF, DOCX etc. as Cloudinary raw files
+exports.uploadResource = async (req, res) => {
+  if (!req.file) return res.status(400).json({ status: "fail", message: "No file provided." });
+  try {
+    const ext  = req.file.originalname.split(".").pop().toLowerCase();
+    const name = req.file.originalname.replace(/\.[^.]+$/, "").slice(0, 80);
+    const result = await uploadToCloudinary(req.file.buffer, {
+      folder:        "codelearn/resources",
+      resource_type: "raw",
+      public_id:     `${Date.now()}_${name.replace(/[^a-z0-9]/gi, "_")}`,
+      use_filename:  false,
+    });
+    res.json({
+      status: "success",
+      data: {
+        url:  result.secure_url,
+        name: req.file.originalname,
+        type: ext,
+        size: req.file.size,
+        publicId: result.public_id,
+      },
+    });
+  } catch (err) {
+    console.error("Resource upload error:", err);
+    res.status(500).json({ status: "fail", message: err.message || "Upload failed." });
+  }
+};
+
 // ── DELETE /api/upload/video ───────────────────────────────────────────────
 exports.deleteVideo = async (req, res) => {
   const { url, publicId } = req.body || {};

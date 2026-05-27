@@ -34,4 +34,8 @@ router.post("/:id/sections/:sid/lectures",        protect, restrictTo("admin", "
 router.put("/:id/sections/:sid/lectures/:lid",    protect, restrictTo("admin", "instructor"), sectionController.updateLecture);
 router.delete("/:id/sections/:sid/lectures/:lid", protect, restrictTo("admin", "instructor"), sectionController.deleteLecture);
 
+// Lecture Resources (ZIP / PDF / etc.)
+router.post("/:id/sections/:sid/lectures/:lid/resources",        protect, restrictTo("admin", "instructor"), sectionController.addResource);
+router.delete("/:id/sections/:sid/lectures/:lid/resources/:rid", protect, restrictTo("admin", "instructor"), sectionController.deleteResource);
+
 module.exports = router;

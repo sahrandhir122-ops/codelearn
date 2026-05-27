@@ -3,6 +3,24 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { courseAPI, uploadAPI } from "../api";
+
+// ── File type icon ───────────────────────────────────────────────────────────
+function fileIcon(type) {
+  if (!type) return "📎";
+  if (type === "zip" || type === "rar" || type === "7z") return "🗜️";
+  if (type === "pdf") return "📄";
+  if (["doc","docx"].includes(type)) return "📝";
+  if (["xls","xlsx"].includes(type)) return "📊";
+  if (["ppt","pptx"].includes(type)) return "📑";
+  if (["js","ts","py","java","cpp","html","css"].includes(type)) return "💻";
+  return "📎";
+}
+function fmtBytes(b) {
+  if (!b) return "";
+  if (b < 1024) return `${b} B`;
+  if (b < 1024 * 1024) return `${(b/1024).toFixed(1)} KB`;
+  return `${(b/1024/1024).toFixed(1)} MB`;
+}
 import { isOneDriveUrl, isOneDriveEmbedUrl, toOneDriveEmbedUrl } from "../components/VideoPlayer";
 
 // ─── Design tokens — Purple theme (matches AdminDashboard) ─────────────────
@@ -249,7 +267,11 @@ function LectureModal({ lecture, sectionId, courseId, onClose, onSaved }) {
     duration:    lecture?.duration    || 0,
     isFree:      lecture?.isFree      || false,
   });
-  const [saving, setSaving] = useState(false);
+  const [saving,         setSaving]         = useState(false);
+  const [resources,      setResources]      = useState(lecture?.resources || []);
+  const [resUploading,   setResUploading]   = useState(false);
+  const [resProgress,    setResProgress]    = useState(0);
+  const resInputRef = useRef();
 
   const handleSave = async () => {
     if (!form.title.trim()) { toast.error("Lecture title is required."); return; }
@@ -451,6 +473,92 @@ function LectureModal({ lecture, sectionId, courseId, onClose, onSaved }) {
             </div>
           </div>
         </div>
+
+        {/* ── Resources (ZIP / PDF / etc.) — only shown when editing existing lecture ── */}
+        {lecture?._id && (
+          <div style={{ marginTop: 20, padding: "14px", background: T.bgCard2, borderRadius: 12, border: `1px solid ${T.border}` }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+              <div>
+                <p style={{ fontSize: 13, fontWeight: 700, color: T.text, margin: 0 }}>📎 Lecture Resources</p>
+                <p style={{ fontSize: 11, color: T.textMuted, margin: 0 }}>ZIP files, PDFs, code — students can download these</p>
+              </div>
+              <button
+                onClick={() => resInputRef.current?.click()}
+                disabled={resUploading}
+                style={{ ...btn(T.primary), opacity: resUploading ? 0.6 : 1, fontSize: 12, padding: "5px 12px" }}>
+                {resUploading ? `Uploading ${resProgress}%…` : "+ Add File"}
+              </button>
+              <input ref={resInputRef} type="file" style={{ display: "none" }}
+                accept=".zip,.rar,.7z,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.js,.ts,.py,.html,.css,.json,.md,.mp3"
+                onChange={async (e) => {
+                  const file = e.target.files[0];
+                  if (!file) return;
+                  setResUploading(true); setResProgress(0);
+                  try {
+                    const fd = new FormData();
+                    fd.append("file", file);
+                    const { data: up } = await uploadAPI.resource(fd, setResProgress);
+                    const { data: saved } = await courseAPI.addResource(
+                      courseId, sectionId, lecture._id,
+                      { name: up.data.name, url: up.data.url, type: up.data.type, size: up.data.size }
+                    );
+                    const updatedLec = saved.data.sections
+                      .flatMap(s => s.lectures)
+                      .find(l => l._id === lecture._id);
+                    setResources(updatedLec?.resources || []);
+                    onSaved(saved.data.sections);
+                    toast.success(`✅ "${up.data.name}" uploaded!`);
+                  } catch (err) {
+                    toast.error(err.response?.data?.message || "Upload failed.");
+                  } finally {
+                    setResUploading(false);
+                    e.target.value = "";
+                  }
+                }}
+              />
+            </div>
+
+            {/* Resource list */}
+            {resources.length === 0 ? (
+              <p style={{ fontSize: 11, color: T.textMuted, textAlign: "center", padding: "10px 0" }}>
+                No files yet — click "+ Add File" to attach a ZIP, PDF, or code file
+              </p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {resources.map((r) => (
+                  <div key={r._id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", background: T.bgCard, borderRadius: 8, border: `1px solid ${T.border}` }}>
+                    <span style={{ fontSize: 18 }}>{fileIcon(r.type)}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: 12, color: T.text, fontWeight: 600, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.name}</p>
+                      <p style={{ fontSize: 10, color: T.textMuted, margin: 0 }}>{r.type?.toUpperCase()} {r.size ? `· ${fmtBytes(r.size)}` : ""}</p>
+                    </div>
+                    <a href={r.url} target="_blank" rel="noopener noreferrer"
+                      style={{ fontSize: 11, color: T.primary, textDecoration: "none", fontWeight: 600 }}>↗ View</a>
+                    <button
+                      onClick={async () => {
+                        if (!window.confirm(`Delete "${r.name}"?`)) return;
+                        try {
+                          const { data } = await courseAPI.deleteResource(courseId, sectionId, lecture._id, r._id);
+                          const updatedLec = data.data.sections.flatMap(s => s.lectures).find(l => l._id === lecture._id);
+                          setResources(updatedLec?.resources || []);
+                          onSaved(data.data.sections);
+                          toast.success("Resource deleted.");
+                        } catch { toast.error("Failed to delete."); }
+                      }}
+                      style={{ background: "rgba(239,68,68,0.1)", color: T.red, border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, cursor: "pointer", fontWeight: 700 }}>
+                      Del
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        {!lecture?._id && (
+          <p style={{ fontSize: 11, color: T.textMuted, marginTop: 10, textAlign: "center" }}>
+            💡 Save the lecture first, then re-open it to attach resource files
+          </p>
+        )}
 
         <div style={{ display: "flex", gap: 10, marginTop: 22 }}>
           <button onClick={handleSave} disabled={saving}

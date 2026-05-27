@@ -117,3 +117,45 @@ exports.deleteLecture = async (req, res, next) => {
   await course.save();
   res.json({ status: "success", data: { sections: course.sections } });
 };
+
+// ── POST /api/courses/:id/sections/:sid/lectures/:lid/resources ───────────
+// Add a resource (already uploaded to Cloudinary) to a lecture
+exports.addResource = async (req, res, next) => {
+  const course = await Course.findById(req.params.id);
+  if (!course) return next(new AppError("Course not found.", 404));
+  if (!canEdit(req, course)) return next(new AppError("Not authorised.", 403));
+
+  const section = course.sections.id(req.params.sid);
+  if (!section) return next(new AppError("Section not found.", 404));
+
+  const lecture = section.lectures.id(req.params.lid);
+  if (!lecture) return next(new AppError("Lecture not found.", 404));
+
+  const { name, url, type, size } = req.body;
+  if (!name || !url) return next(new AppError("name and url are required.", 400));
+
+  lecture.resources = lecture.resources || [];
+  lecture.resources.push({ name, url, type: type || "file", size: size || 0 });
+  await course.save();
+  res.status(201).json({ status: "success", data: { sections: course.sections } });
+};
+
+// ── DELETE /api/courses/:id/sections/:sid/lectures/:lid/resources/:rid ────
+exports.deleteResource = async (req, res, next) => {
+  const course = await Course.findById(req.params.id);
+  if (!course) return next(new AppError("Course not found.", 404));
+  if (!canEdit(req, course)) return next(new AppError("Not authorised.", 403));
+
+  const section = course.sections.id(req.params.sid);
+  if (!section) return next(new AppError("Section not found.", 404));
+
+  const lecture = section.lectures.id(req.params.lid);
+  if (!lecture) return next(new AppError("Lecture not found.", 404));
+
+  const resource = (lecture.resources || []).id(req.params.rid);
+  if (!resource) return next(new AppError("Resource not found.", 404));
+
+  resource.deleteOne();
+  await course.save();
+  res.json({ status: "success", data: { sections: course.sections } });
+};
