@@ -25,6 +25,7 @@ const commentRoutes = require("./routes/comment.routes");
 const adminRoutes   = require("./routes/admin.routes");
 const couponRoutes  = require("./routes/coupon.routes");
 const uploadRoutes  = require("./routes/upload.routes");
+const videoRoutes   = require("./routes/video.routes");
 
 // Passport config
 require("./config/passport");
@@ -102,6 +103,7 @@ app.use("/api/comments", commentRoutes);
 app.use("/api/admin",    adminRoutes);
 app.use("/api/coupons",  couponRoutes);
 app.use("/api/upload",   uploadRoutes);
+app.use("/api/videos",  videoRoutes);
 
 // ── Error handling ─────────────────────────────────────────────────────────
 app.use(notFound);

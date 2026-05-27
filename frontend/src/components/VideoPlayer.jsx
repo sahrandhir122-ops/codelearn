@@ -161,42 +161,10 @@ function YouTubePlayer({ src, autoPlay }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// OneDrivePlayer — shows a clear "blocked" message (Microsoft blocks all
-// iframe embedding of OneDrive personal files from external domains)
-// ─────────────────────────────────────────────────────────────────────────────
-function OneDrivePlayer() {
-  return (
-    <div
-      className="w-full flex items-center justify-center bg-black text-center p-8"
-      style={{ minHeight: 300 }}
-    >
-      <div className="max-w-md">
-        <div className="text-4xl mb-3">🚫</div>
-        <p className="text-white/80 font-semibold text-base mb-2">
-          OneDrive videos can't be embedded
-        </p>
-        <p className="text-white/40 text-sm mb-5">
-          Microsoft blocks OneDrive from being embedded on external websites.
-          This cannot be bypassed.
-        </p>
-        <div className="text-left text-xs space-y-3 bg-white/[0.04] rounded-xl p-4 border border-white/[0.07]">
-          <p className="text-white/60 font-semibold">✅ Use one of these instead:</p>
-          <div className="space-y-2 text-white/40">
-            <p>
-              <span className="text-red-400 font-bold">▶ YouTube Unlisted</span> — Upload to YouTube, set Unlisted, paste the URL. Free, unlimited, works perfectly.
-            </p>
-            <p>
-              <span className="text-blue-400 font-bold">📁 Google Drive</span> — Upload to Drive, share "Anyone with link", paste the URL. 15 GB free.
-            </p>
-          </div>
-        </div>
-        <p className="text-white/25 text-xs mt-4">
-          Update this lecture's video URL in the Course Builder.
-        </p>
-      </div>
-    </div>
-  );
+// Build a proxy URL that streams an OneDrive video through our own backend
+const API_BASE = (import.meta.env.VITE_API_URL || "/api").replace(/\/$/, "");
+export function toProxyUrl(oneDriveUrl) {
+  return `${API_BASE}/videos/proxy?url=${encodeURIComponent(oneDriveUrl)}`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -614,11 +582,12 @@ const VideoPlayer = forwardRef(function VideoPlayer(
 ) {
   if (getYouTubeId(src))      return <YouTubePlayer src={src} autoPlay={autoPlay} />;
   if (getGoogleDriveId(src))  return <GoogleDrivePlayer src={src} />;
-  if (isOneDriveUrl(src))     return <OneDrivePlayer />;
+  // OneDrive → stream through our backend proxy (bypasses CORS + X-Frame-Options)
+  const resolvedSrc = isOneDriveUrl(src) ? toProxyUrl(src) : src;
   return (
     <HTML5Player
       ref={forwardedRef}
-      src={src}
+      src={resolvedSrc}
       onEnded={onEnded}
       onError={onError}
       autoPlay={autoPlay}

@@ -304,7 +304,7 @@ function LectureModal({ lecture, sectionId, courseId, onClose, onSaved }) {
                 background: form.isFree ? "rgba(239,68,68,0.15)" : `${T.primary}22`,
                 color: form.isFree ? "#F87171" : T.purple,
               }}>
-                {form.isFree ? "▶ Free → YouTube Unlisted" : "🔒 Paid → YouTube / Google Drive"}
+                {form.isFree ? "▶ Free → YouTube Unlisted" : "🔒 Paid → OneDrive / YouTube / Drive"}
               </span>
             </div>
 
@@ -371,7 +371,7 @@ function LectureModal({ lecture, sectionId, courseId, onClose, onSaved }) {
                     } catch (_) {}
                     setForm(p => ({ ...p, videoUrl: val }));
                   }}
-                  placeholder="https://youtu.be/xxxx  or  https://drive.google.com/file/d/xxxx/view"
+                  placeholder="https://1drv.ms/v/...  or  https://youtu.be/xxxx  or  Google Drive link"
                   style={{ width: "100%", background: T.bgCard2, border: `1px solid ${T.primary}35`, color: T.text, padding: "10px 14px", borderRadius: 8, fontSize: 13, outline: "none", boxSizing: "border-box" }}
                 />
                 {/* URL status */}
@@ -389,9 +389,9 @@ function LectureModal({ lecture, sectionId, courseId, onClose, onSaved }) {
                     </p>
                   );
                   if (isOD) return (
-                    <div style={{ marginTop: 6, padding: "8px 10px", background: "rgba(239,68,68,0.08)", borderRadius: 8, border: "1px solid rgba(239,68,68,0.2)", fontSize: 11, color: "#FCA5A5", lineHeight: 1.7 }}>
-                      🚫 <strong>OneDrive is blocked by Microsoft</strong> — use YouTube Unlisted or Google Drive instead.
-                    </div>
+                    <p style={{ fontSize: 11, color: T.green, marginTop: 6 }}>
+                      ✅ OneDrive URL detected — will stream via proxy player
+                    </p>
                   );
                   if (isYT) return (
                     <p style={{ fontSize: 11, color: T.green, marginTop: 6 }}>
@@ -411,22 +411,21 @@ function LectureModal({ lecture, sectionId, courseId, onClose, onSaved }) {
                   return null;
                 })()}
                 <div style={{ marginTop: 10, padding: "10px 12px", background: T.bgCard2, borderRadius: 8, fontSize: 11, color: T.textMuted, lineHeight: 1.9 }}>
-                  <strong style={{ color: T.text }}>📋 Recommended video hosting:</strong><br />
-                  <strong style={{ color: "#F87171", fontSize: 10.5 }}>▶ Option A — YouTube Unlisted (best):</strong><br />
+                  <strong style={{ color: T.text }}>📋 Supported video sources:</strong><br />
+                  <strong style={{ color: T.purple, fontSize: 10.5 }}>☁️ OneDrive (your 100 GB — recommended):</strong><br />
                   <span style={{ color: T.textMuted }}>
-                    1. Upload to <strong style={{ color: "#F87171" }}>YouTube Studio</strong> → Visibility → <strong style={{ color: "#F87171" }}>Unlisted</strong><br />
-                    2. Copy the video URL → paste here<br />
-                    3. Students can only watch via your platform (not searchable)
+                    1. Select video → <strong style={{ color: T.purple }}>Share</strong> → <strong style={{ color: T.purple }}>Anyone with link → Can view</strong><br />
+                    2. Click <strong style={{ color: T.purple }}>Copy link</strong> → paste the <code style={{ color: T.purple, background: "rgba(139,92,246,0.1)", padding: "1px 4px", borderRadius: 3 }}>1drv.ms/v/...</code> URL here<br />
+                    3. Video streams via our proxy — works perfectly ✅
                   </span><br />
-                  <strong style={{ color: "#60A5FA", fontSize: 10.5 }}>📁 Option B — Google Drive (15 GB free):</strong><br />
+                  <strong style={{ color: "#F87171", fontSize: 10.5 }}>▶ YouTube Unlisted (unlimited free):</strong><br />
                   <span style={{ color: T.textMuted }}>
-                    1. Upload to <strong style={{ color: "#60A5FA" }}>Google Drive</strong> → Right-click → Share<br />
-                    2. Set to <strong style={{ color: "#60A5FA" }}>Anyone with the link → Viewer</strong><br />
-                    3. Copy link → paste here (any <code style={{ color: "#60A5FA", background: "rgba(96,165,250,0.1)", padding: "1px 5px", borderRadius: 4 }}>drive.google.com</code> URL works)
+                    Upload → set <strong style={{ color: "#F87171" }}>Unlisted</strong> → paste <code style={{ color: "#F87171", background: "rgba(239,68,68,0.08)", padding: "1px 4px", borderRadius: 3 }}>youtu.be/...</code> URL
+                  </span><br />
+                  <strong style={{ color: "#60A5FA", fontSize: 10.5 }}>📁 Google Drive (15 GB free):</strong><br />
+                  <span style={{ color: T.textMuted }}>
+                    Share as <strong style={{ color: "#60A5FA" }}>Anyone with link → Viewer</strong> → paste Drive URL
                   </span>
-                  <div style={{ marginTop: 8, padding: "6px 10px", background: "rgba(239,68,68,0.06)", borderRadius: 6, color: "#FCA5A5", fontSize: 10.5 }}>
-                    🚫 <strong>OneDrive does NOT work</strong> — Microsoft blocks embedding on external sites.
-                  </div>
                 </div>
               </div>
             )}
