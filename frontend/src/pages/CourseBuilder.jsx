@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { courseAPI, uploadAPI } from "../api";
-import { isOneDriveUrl, toOneDriveEmbedUrl } from "../components/VideoPlayer";
+import { isOneDriveUrl, isOneDriveEmbedUrl, toOneDriveEmbedUrl } from "../components/VideoPlayer";
 
 // ─── Design tokens — Purple theme (matches AdminDashboard) ─────────────────
 const T = {
@@ -304,7 +304,7 @@ function LectureModal({ lecture, sectionId, courseId, onClose, onSaved }) {
                 background: form.isFree ? "rgba(239,68,68,0.15)" : `${T.primary}22`,
                 color: form.isFree ? "#F87171" : T.purple,
               }}>
-                {form.isFree ? "▶ Free → YouTube Unlisted" : "🔒 Paid → OneDrive / YouTube / Drive"}
+                {form.isFree ? "▶ Free → YouTube Unlisted" : "🔒 Paid → OneDrive Embed / YouTube / Drive"}
               </span>
             </div>
 
@@ -371,26 +371,32 @@ function LectureModal({ lecture, sectionId, courseId, onClose, onSaved }) {
                     } catch (_) {}
                     setForm(p => ({ ...p, videoUrl: val }));
                   }}
-                  placeholder="https://1drv.ms/v/...  or  https://youtu.be/xxxx  or  Google Drive link"
+                  placeholder="https://onedrive.live.com/embed?resid=...  or  https://youtu.be/xxxx  or  Google Drive link"
                   style={{ width: "100%", background: T.bgCard2, border: `1px solid ${T.primary}35`, color: T.text, padding: "10px 14px", borderRadius: 8, fontSize: 13, outline: "none", boxSizing: "border-box" }}
                 />
                 {/* URL status */}
                 {(() => {
                   const v = form.videoUrl;
                   if (!v) return null;
-                  const isYT  = v.includes("youtube.com") || v.includes("youtu.be");
-                  const isGD  = v.includes("drive.google.com");
-                  const isOD  = isOneDriveUrl(v);
-                  const hasHTML = v.startsWith("<");
+                  const isYT      = v.includes("youtube.com") || v.includes("youtu.be");
+                  const isGD      = v.includes("drive.google.com");
+                  const isODEmbed = isOneDriveEmbedUrl(v);
+                  const isOD      = !isODEmbed && isOneDriveUrl(v);
+                  const hasHTML   = v.startsWith("<");
 
                   if (hasHTML) return (
                     <p style={{ fontSize: 11, color: T.amber, marginTop: 6 }}>
                       ⚠ You pasted HTML code — paste only the URL (the value inside <code>src="..."</code>).
                     </p>
                   );
-                  if (isOD) return (
+                  if (isODEmbed) return (
                     <p style={{ fontSize: 11, color: T.green, marginTop: 6 }}>
-                      ✅ OneDrive URL detected — will stream via proxy player
+                      ✅ OneDrive embed URL detected — will play via Microsoft's player ✅
+                    </p>
+                  );
+                  if (isOD) return (
+                    <p style={{ fontSize: 11, color: T.amber, marginTop: 6 }}>
+                      ⚠ This is a share/view link — it won't work as a video source. Paste the embed <code style={{ background: "rgba(139,92,246,0.1)", padding: "1px 4px", borderRadius: 3 }}>src="..."</code> URL instead (see instructions below).
                     </p>
                   );
                   if (isYT) return (
@@ -412,13 +418,14 @@ function LectureModal({ lecture, sectionId, courseId, onClose, onSaved }) {
                 })()}
                 <div style={{ marginTop: 10, padding: "10px 12px", background: T.bgCard2, borderRadius: 8, fontSize: 11, color: T.textMuted, lineHeight: 1.9 }}>
                   <strong style={{ color: T.text }}>📋 Supported video sources:</strong><br />
-                  <strong style={{ color: T.purple, fontSize: 10.5 }}>☁️ OneDrive (your 100 GB — recommended):</strong><br />
+                  <strong style={{ color: T.purple, fontSize: 10.5 }}>☁️ OneDrive (your storage — use embed URL):</strong><br />
                   <span style={{ color: T.textMuted }}>
-                    1. Select video → <strong style={{ color: T.purple }}>Share</strong> → <strong style={{ color: T.purple }}>Anyone with link → Can view</strong><br />
-                    2. Click <strong style={{ color: T.purple }}>Copy link</strong> → paste the <code style={{ color: T.purple, background: "rgba(139,92,246,0.1)", padding: "1px 4px", borderRadius: 3 }}>1drv.ms/v/...</code> URL here<br />
-                    3. Video streams via our proxy — works perfectly ✅
+                    1. Open <strong style={{ color: T.purple }}>OneDrive</strong> on the web → right-click video → <strong style={{ color: T.purple }}>Embed</strong><br />
+                    2. Click <strong style={{ color: T.purple }}>Generate</strong> → you'll see an <code style={{ color: T.purple, background: "rgba(139,92,246,0.1)", padding: "1px 4px", borderRadius: 3 }}>&lt;iframe src="..."&gt;</code> code<br />
+                    3. Copy <strong style={{ color: T.purple }}>only the URL</strong> inside <code style={{ color: T.purple, background: "rgba(139,92,246,0.1)", padding: "1px 4px", borderRadius: 3 }}>src="..."</code> (starts with <code style={{ color: T.purple, background: "rgba(139,92,246,0.1)", padding: "1px 4px", borderRadius: 3 }}>onedrive.live.com/embed?resid=</code>)<br />
+                    4. Paste that URL here ✅
                   </span><br />
-                  <strong style={{ color: "#F87171", fontSize: 10.5 }}>▶ YouTube Unlisted (unlimited free):</strong><br />
+                  <strong style={{ color: "#F87171", fontSize: 10.5 }}>▶ YouTube Unlisted (unlimited free — easiest):</strong><br />
                   <span style={{ color: T.textMuted }}>
                     Upload → set <strong style={{ color: "#F87171" }}>Unlisted</strong> → paste <code style={{ color: "#F87171", background: "rgba(239,68,68,0.08)", padding: "1px 4px", borderRadius: 3 }}>youtu.be/...</code> URL
                   </span><br />
