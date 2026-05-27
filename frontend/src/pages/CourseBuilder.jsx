@@ -354,8 +354,24 @@ function LectureModal({ lecture, sectionId, courseId, onClose, onSaved }) {
                 </div>
                 <input
                   value={form.videoUrl}
-                  onChange={(e) => setForm(p => ({ ...p, videoUrl: e.target.value }))}
-                  placeholder="https://onedrive.live.com/download?resid=XXX&authkey=XXX"
+                  onChange={(e) => {
+                    let val = e.target.value.trim();
+                    // Auto-strip HTML tags — extract URL from <img src="..." /> or <iframe src="..." />
+                    const srcMatch = val.match(/src=["']([^"']+)["']/);
+                    if (srcMatch) val = srcMatch[1];
+                    // Also strip if user pasted the whole <a href="..."> or plain href
+                    const hrefMatch = val.match(/href=["']([^"']+)["']/);
+                    if (hrefMatch) val = hrefMatch[1];
+                    // Remove width/height query params that come from OneDrive img embeds
+                    try {
+                      const u = new URL(val);
+                      u.searchParams.delete("width");
+                      u.searchParams.delete("height");
+                      val = u.toString();
+                    } catch (_) {}
+                    setForm(p => ({ ...p, videoUrl: val }));
+                  }}
+                  placeholder="https://onedrive.live.com/embed?resid=XXX&authkey=XXX  or  https://1drv.ms/v/..."
                   style={{ width: "100%", background: T.bgCard2, border: `1px solid ${T.primary}35`, color: T.text, padding: "10px 14px", borderRadius: 8, fontSize: 13, outline: "none", boxSizing: "border-box" }}
                 />
                 {/* URL status */}
@@ -365,45 +381,50 @@ function LectureModal({ lecture, sectionId, courseId, onClose, onSaved }) {
                   const isYT = v.includes("youtube.com") || v.includes("youtu.be");
                   const isOD = isOneDriveUrl(v);
                   const is1drv = v.includes("1drv.ms");
-                  const canEmbed = isOD && !is1drv && !!toOneDriveEmbedUrl(v);
+                  const hasHTML = v.startsWith("<");
 
+                  if (hasHTML) return (
+                    <p style={{ fontSize: 11, color: T.amber, marginTop: 6 }}>
+                      ⚠ You pasted HTML code — please paste only the URL (the value inside <code>src="..."</code>).
+                    </p>
+                  );
                   if (isYT) return (
                     <p style={{ fontSize: 11, color: T.amber, marginTop: 6 }}>
                       ⚠ YouTube URL on a paid lecture — toggle "Free Preview" ON if this is a demo.
                     </p>
                   );
-                  if (canEmbed) return (
+                  if (is1drv) return (
+                    <p style={{ fontSize: 11, color: T.green, marginTop: 6 }}>
+                      ✅ OneDrive share link detected — will try to embed via Microsoft's player
+                    </p>
+                  );
+                  if (isOD) return (
                     <p style={{ fontSize: 11, color: T.green, marginTop: 6 }}>
                       ✅ OneDrive URL detected — will play via Microsoft's video player
                     </p>
                   );
-                  if (is1drv) return (
-                    <div style={{ marginTop: 6, padding: "8px 10px", background: "rgba(245,158,11,0.08)", borderRadius: 8, border: `1px solid ${T.amber}30` }}>
-                      <p style={{ fontSize: 11, color: T.amber, lineHeight: 1.7 }}>
-                        ⚠ <strong>Short share links (1drv.ms) don't work for video playback.</strong><br />
-                        Open that link in your browser → click <strong>⋯</strong> → <strong>Embed</strong> → copy the <code style={{ color: T.purple }}>src="..."</code> URL from the iframe code and paste it here.
-                      </p>
-                    </div>
-                  );
                   if (v.length > 5) return (
                     <p style={{ fontSize: 11, color: T.amber, marginTop: 6 }}>
-                      ⚠ Non-OneDrive URL. Make sure it's a OneDrive embed or download link.
+                      ⚠ Non-OneDrive URL. Use a OneDrive embed or share link.
                     </p>
                   );
                   return null;
                 })()}
                 <div style={{ marginTop: 10, padding: "10px 12px", background: T.bgCard2, borderRadius: 8, fontSize: 11, color: T.textMuted, lineHeight: 1.9 }}>
-                  <strong style={{ color: T.text }}>📋 How to get an OneDrive embed link:</strong><br />
+                  <strong style={{ color: T.text }}>📋 How to get an OneDrive link (2 options):</strong><br />
+                  <strong style={{ color: T.green, fontSize: 10.5 }}>Option A — Share link (easiest):</strong><br />
                   <span style={{ color: T.textMuted }}>
-                    1. Upload your video to <strong style={{ color: T.purple }}>OneDrive</strong><br />
-                    2. Open OneDrive in browser → click the video file<br />
-                    3. Click <strong style={{ color: T.purple }}>⋯ (more options)</strong> → <strong style={{ color: T.purple }}>Embed</strong><br />
-                    4. Copy the <code style={{ color: T.purple, background: "rgba(139,92,246,0.1)", padding: "1px 5px", borderRadius: 4 }}>src="..."</code> URL from the iframe code<br />
-                    5. Paste it here — it should contain <code style={{ color: T.purple, background: "rgba(139,92,246,0.1)", padding: "1px 5px", borderRadius: 4 }}>embed?resid=</code>
+                    1. Select the video in OneDrive → click <strong style={{ color: T.purple }}>Share</strong> → <strong style={{ color: T.purple }}>Copy link</strong><br />
+                    2. Make sure it's set to <strong style={{ color: T.purple }}>Anyone with the link</strong><br />
+                    3. Paste the <code style={{ color: T.purple, background: "rgba(139,92,246,0.1)", padding: "1px 5px", borderRadius: 4 }}>1drv.ms/...</code> URL directly here
+                  </span><br />
+                  <strong style={{ color: T.green, fontSize: 10.5 }}>Option B — Embed link (from Embed dialog):</strong><br />
+                  <span style={{ color: T.textMuted }}>
+                    1. Select video → <strong style={{ color: T.purple }}>⋯</strong> → <strong style={{ color: T.purple }}>Embed</strong> → click <strong style={{ color: T.purple }}>Generate</strong><br />
+                    2. Tick <strong style={{ color: T.purple }}>Include HTML tags</strong> checkbox<br />
+                    3. From the code shown, copy <strong style={{ color: T.green }}>only the URL</strong> inside <code style={{ color: T.purple, background: "rgba(139,92,246,0.1)", padding: "1px 5px", borderRadius: 4 }}>src="..."</code><br />
+                    4. Paste just the URL (not the full tag) here
                   </span>
-                  <div style={{ marginTop: 8, padding: "6px 10px", background: "rgba(16,185,129,0.08)", borderRadius: 6, color: "#6EE7B7", fontSize: 10.5 }}>
-                    💡 <strong>Tip:</strong> Download links (<code>/download?resid=</code>) also work — they're auto-converted to embed format. Share links (<code>1drv.ms</code>) do <strong>not</strong> work — use the Embed option.
-                  </div>
                 </div>
               </div>
             )}

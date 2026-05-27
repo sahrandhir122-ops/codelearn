@@ -83,11 +83,15 @@ export function toOneDriveEmbedUrl(url) {
         if (!u.searchParams.has("em")) u.searchParams.set("em", "2");
         return u.toString();
       }
+      // Other onedrive.live.com paths — try as-is
+      return url;
     }
+    // 1drv.ms short share/view links — pass to iframe and let Microsoft handle the redirect
+    if (u.hostname === "1drv.ms") return url;
     // SharePoint video URLs — try as-is in iframe
     if (u.hostname.endsWith(".sharepoint.com")) return url;
   } catch (_) {}
-  return null; // 1drv.ms short links cannot be converted client-side
+  return null;
 }
 
 /**
