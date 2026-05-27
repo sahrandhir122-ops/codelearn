@@ -117,6 +117,10 @@ export const adminAPI = {
   deleteReview: (courseId, reviewId) => api.delete(`/admin/reviews/${courseId}/${reviewId}`),
   // Announcements
   sendAnnouncement: (data) => api.post("/admin/announcements", data),
+  // Free-access grants
+  getUserEnrollments: (id)             => api.get(`/admin/users/${id}/enrollments`),
+  grantCourseAccess:  (id, courseId)   => api.post(`/admin/users/${id}/grant-access`, { courseId }),
+  revokeCourseAccess: (id, courseId)   => api.delete(`/admin/users/${id}/revoke-access/${courseId}`),
 };
 
 // ── Coupons ────────────────────────────────────────────────────────────────

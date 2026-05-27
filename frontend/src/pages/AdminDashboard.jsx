@@ -411,10 +411,192 @@ function CoursesPage({ notify }) {
 }
 
 // ─── Users Page ────────────────────────────────────────────────────────────
+// ─── Grant Access Modal ────────────────────────────────────────────────────
+function GrantAccessModal({ user, onClose, notify }) {
+  const qc = useQueryClient();
+
+  // Load this user's current enrollments
+  const { data: enrollData, isLoading: enrollLoading, refetch: refetchEnroll } = useQuery({
+    queryKey: ["admin-user-enrollments", user._id],
+    queryFn: () => adminAPI.getUserEnrollments(user._id).then((r) => r.data.data.enrollments),
+    staleTime: 0,
+  });
+  const enrolled = enrollData || [];
+
+  // Load all published courses for selection
+  const { data: coursesData, isLoading: coursesLoading } = useQuery({
+    queryKey: ["admin-all-courses-grant"],
+    queryFn: () => adminAPI.getCourses({ limit: 100 }).then((r) => r.data.data.courses),
+    staleTime: 60_000,
+  });
+  const allCourses = coursesData || [];
+
+  const [courseSearch, setCourseSearch] = useState("");
+  const [working, setWorking] = useState(null); // courseId being processed
+
+  const enrolledIds = new Set(enrolled.map((c) => c._id?.toString()));
+
+  const filteredCourses = allCourses.filter((c) =>
+    !courseSearch || c.title.toLowerCase().includes(courseSearch.toLowerCase())
+  );
+
+  const grant = async (courseId, courseTitle) => {
+    setWorking(courseId);
+    try {
+      await adminAPI.grantCourseAccess(user._id, courseId);
+      await refetchEnroll();
+      notify(`✅ "${courseTitle}" granted to ${user.name}`, "success");
+    } catch (e) {
+      notify(e.response?.data?.message || "Failed to grant access.", "error");
+    } finally {
+      setWorking(null);
+    }
+  };
+
+  const revoke = async (courseId, courseTitle) => {
+    if (!window.confirm(`Revoke access to "${courseTitle}" from ${user.name}?`)) return;
+    setWorking(courseId);
+    try {
+      await adminAPI.revokeCourseAccess(user._id, courseId);
+      await refetchEnroll();
+      notify(`Access to "${courseTitle}" revoked.`, "info");
+    } catch (e) {
+      notify(e.response?.data?.message || "Failed to revoke access.", "error");
+    } finally {
+      setWorking(null);
+    }
+  };
+
+  const isLoading = enrollLoading || coursesLoading;
+
+  return (
+    <div
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+      onClick={onClose}
+    >
+      <div
+        style={{ background: T.bgCard, border: `1px solid ${T.border2}`, borderRadius: 20, width: "100%", maxWidth: 560, maxHeight: "88vh", display: "flex", flexDirection: "column", overflow: "hidden" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div style={{ padding: "20px 24px 16px", borderBottom: `1px solid ${T.border}`, flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+            <h3 style={{ fontSize: 17, fontWeight: 800, color: T.text, fontFamily: "Plus Jakarta Sans, sans-serif" }}>
+              🎁 Grant Free Access
+            </h3>
+            <button onClick={onClose} style={{ background: "none", border: "none", color: T.textMuted, fontSize: 20, cursor: "pointer", lineHeight: 1 }}>✕</button>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8 }}>
+            <div style={{ width: 34, height: 34, borderRadius: "50%", background: `${T.primary}25`, color: T.primary, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, overflow: "hidden", flexShrink: 0 }}>
+              {user.avatar ? <img src={user.avatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : user.name?.slice(0, 2).toUpperCase()}
+            </div>
+            <div>
+              <p style={{ fontSize: 14, fontWeight: 600, color: T.text, margin: 0 }}>{user.name}</p>
+              <p style={{ fontSize: 12, color: T.textMuted, margin: 0 }}>{user.email}</p>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ flex: 1, overflowY: "auto", padding: "16px 24px 20px" }}>
+          {isLoading ? (
+            <div style={{ textAlign: "center", padding: 40, color: T.textMuted }}>Loading…</div>
+          ) : (
+            <>
+              {/* Currently enrolled */}
+              <div style={{ marginBottom: 20 }}>
+                <p style={{ fontSize: 12, fontWeight: 700, color: T.textMuted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>
+                  Currently Enrolled ({enrolled.length})
+                </p>
+                {enrolled.length === 0 ? (
+                  <p style={{ fontSize: 13, color: T.textDim, padding: "10px 0" }}>No courses enrolled yet.</p>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {enrolled.map((c) => (
+                      <div key={c._id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", background: `${T.green}0D`, border: `1px solid ${T.green}25`, borderRadius: 10 }}>
+                        {c.thumbnail && <img src={c.thumbnail} alt="" style={{ width: 36, height: 26, objectFit: "cover", borderRadius: 5, flexShrink: 0 }} />}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ fontSize: 13, fontWeight: 600, color: T.text, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.title}</p>
+                          <p style={{ fontSize: 11, color: T.green, margin: 0 }}>✓ Has access</p>
+                        </div>
+                        <button
+                          onClick={() => revoke(c._id, c.title)}
+                          disabled={working === c._id}
+                          style={{ background: "rgba(239,68,68,0.12)", color: T.red, border: "1px solid rgba(239,68,68,0.2)", padding: "4px 10px", borderRadius: 7, fontSize: 11, fontWeight: 700, cursor: "pointer", flexShrink: 0, opacity: working === c._id ? 0.5 : 1 }}
+                        >
+                          {working === c._id ? "…" : "Revoke"}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Divider */}
+              <div style={{ height: 1, background: T.border, marginBottom: 16 }} />
+
+              {/* All courses to grant */}
+              <div>
+                <p style={{ fontSize: 12, fontWeight: 700, color: T.textMuted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>
+                  Grant Access to a Course
+                </p>
+                <input
+                  value={courseSearch}
+                  onChange={(e) => setCourseSearch(e.target.value)}
+                  placeholder="Search courses…"
+                  style={{ width: "100%", background: T.bgCard2, border: `1px solid ${T.border}`, color: T.text, padding: "9px 14px", borderRadius: 9, fontSize: 13, outline: "none", marginBottom: 10, boxSizing: "border-box" }}
+                />
+                {filteredCourses.length === 0 && (
+                  <p style={{ fontSize: 13, color: T.textDim, textAlign: "center", padding: "16px 0" }}>No courses found.</p>
+                )}
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {filteredCourses.map((c) => {
+                    const has = enrolledIds.has(c._id?.toString());
+                    return (
+                      <div key={c._id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", background: has ? `${T.green}08` : T.bgCard2, border: `1px solid ${has ? T.green + "20" : T.border}`, borderRadius: 10, opacity: has ? 0.7 : 1 }}>
+                        {c.thumbnail && <img src={c.thumbnail} alt="" style={{ width: 36, height: 26, objectFit: "cover", borderRadius: 5, flexShrink: 0 }} />}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ fontSize: 13, fontWeight: 600, color: T.text, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.title}</p>
+                          <p style={{ fontSize: 11, color: T.textMuted, margin: 0 }}>
+                            {c.price > 0 ? `₹${c.price}` : "Free"} · {c.isPublished ? "Published" : "Draft"}
+                          </p>
+                        </div>
+                        {has ? (
+                          <span style={{ fontSize: 11, color: T.green, fontWeight: 700, flexShrink: 0 }}>✓ Enrolled</span>
+                        ) : (
+                          <button
+                            onClick={() => grant(c._id, c.title)}
+                            disabled={working === c._id}
+                            style={{ background: `${T.primary}22`, color: T.accent, border: `1px solid ${T.primary}35`, padding: "5px 12px", borderRadius: 7, fontSize: 12, fontWeight: 700, cursor: "pointer", flexShrink: 0, opacity: working === c._id ? 0.5 : 1 }}
+                          >
+                            {working === c._id ? "…" : "Grant"}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: "14px 24px", borderTop: `1px solid ${T.border}`, flexShrink: 0 }}>
+          <button onClick={onClose} style={{ width: "100%", background: T.bgCard2, color: T.textMuted, border: `1px solid ${T.border}`, padding: "11px", borderRadius: 10, fontSize: 14, cursor: "pointer", fontWeight: 600 }}>
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Users Page ────────────────────────────────────────────────────────────
 function UsersPage({ notify }) {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
+  const [grantUser, setGrantUser] = useState(null); // user object for GrantAccessModal
 
   const { data: usersData, isLoading } = useQuery({
     queryKey: ["admin-users", search, filter],
@@ -438,6 +620,14 @@ function UsersPage({ notify }) {
 
   return (
     <div>
+      {grantUser && (
+        <GrantAccessModal
+          user={grantUser}
+          onClose={() => setGrantUser(null)}
+          notify={notify}
+        />
+      )}
+
       <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
         <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by name or email…"
           style={{ flex: 1, minWidth: 180, background: T.bgCard, border: `1px solid ${T.border}`, color: T.text, padding: "10px 14px", borderRadius: 10, fontSize: 14, outline: "none" }} />
@@ -452,23 +642,35 @@ function UsersPage({ notify }) {
       </div>
 
       <div style={{ overflowX: "auto" }}>
-        <div style={{ background: T.bgCard, border: `1px solid ${T.border}`, borderRadius: 16, overflow: "hidden", minWidth: 600 }}>
+        <div style={{ background: T.bgCard, border: `1px solid ${T.border}`, borderRadius: 16, overflow: "hidden", minWidth: 640 }}>
           {users.length === 0 && <div style={{ padding: 40, textAlign: "center", color: T.textDim }}>No users found.</div>}
           {users.map((u, i) => (
-            <div key={u._id} style={{ display: "grid", gridTemplateColumns: "44px 1fr 160px 100px 160px", gap: 14, padding: "14px 20px", borderBottom: i < users.length - 1 ? `1px solid ${T.border}` : "none", alignItems: "center" }}>
+            <div key={u._id} style={{ display: "grid", gridTemplateColumns: "44px 1fr 140px 90px 200px", gap: 12, padding: "14px 20px", borderBottom: i < users.length - 1 ? `1px solid ${T.border}` : "none", alignItems: "center" }}>
               <div style={{ width: 36, height: 36, borderRadius: "50%", background: `${T.primary}25`, color: T.primary, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, overflow: "hidden" }}>
                 {u.avatar ? <img src={u.avatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : u.name?.slice(0, 2).toUpperCase()}
               </div>
               <div>
                 <p style={{ fontSize: 14, fontWeight: 600, color: T.text, marginBottom: 2 }}>{u.name}</p>
                 <p style={{ fontSize: 12, color: T.textMuted }}>{u.email}</p>
+                {u.enrolledCourses?.length > 0 && (
+                  <p style={{ fontSize: 11, color: T.green, marginTop: 1 }}>
+                    🎓 {u.enrolledCourses.length} course{u.enrolledCourses.length !== 1 ? "s" : ""}
+                  </p>
+                )}
               </div>
               <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                 <StatusBadge status={u.role} />
                 {u.isVerified ? <span style={{ fontSize: 11, color: T.green }}>✓</span> : <span style={{ fontSize: 11, color: T.amber }}>⚠</span>}
               </div>
               <span style={{ fontSize: 12, color: T.textDim }}>{new Date(u.createdAt).toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" })}</span>
-              <div style={{ display: "flex", gap: 6 }}>
+              <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                <button
+                  onClick={() => setGrantUser(u)}
+                  style={{ background: `${T.primary}18`, color: T.accent, border: `1px solid ${T.primary}30`, padding: "5px 9px", borderRadius: 7, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                  title="Grant / revoke course access"
+                >
+                  🎁 Access
+                </button>
                 <select value={u.role} onChange={(e) => roleMutation.mutate({ id: u._id, role: e.target.value })}
                   style={{ background: T.bgCard2, border: `1px solid ${T.border}`, color: T.text, padding: "4px 8px", borderRadius: 7, fontSize: 12, cursor: "pointer" }}>
                   {["student", "instructor", "admin"].map((r) => <option key={r} value={r} style={{ background: T.bgCard2 }}>{r}</option>)}

@@ -14,6 +14,11 @@ router.get("/users", adminController.getAllUsers);
 router.patch("/users/:id/role", adminController.changeUserRole);
 router.delete("/users/:id", adminController.deleteUser);
 
+// Free-access grants
+router.get("/users/:id/enrollments",              adminController.getUserEnrollments);
+router.post("/users/:id/grant-access",            adminController.grantCourseAccess);
+router.delete("/users/:id/revoke-access/:courseId", adminController.revokeCourseAccess);
+
 // Courses (all, including drafts)
 router.get("/courses", adminController.getAllCourses);
 

@@ -288,6 +288,67 @@ exports.sendAnnouncement = async (req, res, next) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// GET /api/admin/users/:id/enrollments
+// ─────────────────────────────────────────────────────────────────────────────
+exports.getUserEnrollments = async (req, res, next) => {
+  const user = await User.findById(req.params.id)
+    .select("name email enrolledCourses")
+    .populate("enrolledCourses", "title thumbnail price slug");
+  if (!user) return next(new AppError("User not found.", 404));
+  res.json({ status: "success", data: { user: { name: user.name, email: user.email }, enrollments: user.enrolledCourses } });
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/admin/users/:id/grant-access
+// Body: { courseId }
+// ─────────────────────────────────────────────────────────────────────────────
+exports.grantCourseAccess = async (req, res, next) => {
+  const { courseId } = req.body;
+  if (!courseId) return next(new AppError("courseId is required.", 400));
+
+  const [user, course] = await Promise.all([
+    User.findById(req.params.id),
+    Course.findById(courseId).select("title"),
+  ]);
+  if (!user)   return next(new AppError("User not found.", 404));
+  if (!course) return next(new AppError("Course not found.", 404));
+
+  const alreadyEnrolled = user.enrolledCourses.some(
+    (id) => id.toString() === courseId
+  );
+  if (!alreadyEnrolled) {
+    user.enrolledCourses.push(courseId);
+    await user.save();
+  }
+
+  res.json({
+    status:  "success",
+    message: alreadyEnrolled
+      ? "User already has access."
+      : `Access granted to "${course.title}".`,
+    data: { alreadyEnrolled },
+  });
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DELETE /api/admin/users/:id/revoke-access/:courseId
+// ─────────────────────────────────────────────────────────────────────────────
+exports.revokeCourseAccess = async (req, res, next) => {
+  const user = await User.findById(req.params.id);
+  if (!user) return next(new AppError("User not found.", 404));
+
+  const before = user.enrolledCourses.length;
+  user.enrolledCourses = user.enrolledCourses.filter(
+    (id) => id.toString() !== req.params.courseId
+  );
+  if (user.enrolledCourses.length === before)
+    return next(new AppError("User is not enrolled in this course.", 404));
+
+  await user.save();
+  res.json({ status: "success", message: "Access revoked." });
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // GET /api/admin/courses  (all courses including drafts)
 // ─────────────────────────────────────────────────────────────────────────────
 exports.getAllCourses = async (req, res) => {
