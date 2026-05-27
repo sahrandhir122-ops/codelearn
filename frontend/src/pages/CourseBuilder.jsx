@@ -304,7 +304,7 @@ function LectureModal({ lecture, sectionId, courseId, onClose, onSaved }) {
                 background: form.isFree ? "rgba(239,68,68,0.15)" : `${T.primary}22`,
                 color: form.isFree ? "#F87171" : T.purple,
               }}>
-                {form.isFree ? "▶ Free → YouTube Unlisted" : "🔒 Paid → OneDrive Embed / YouTube / Drive"}
+{form.isFree ? "▶ Free → YouTube Unlisted" : "🔒 Paid → YouTube Unlisted (recommended)"}
               </span>
             </div>
 
@@ -343,96 +343,80 @@ function LectureModal({ lecture, sectionId, courseId, onClose, onSaved }) {
                 </div>
               </div>
             ) : (
-              /* ── PAID LECTURE: YouTube Unlisted or Google Drive ── */
-              <div style={{ background: `${T.primary}08`, border: `1px solid ${T.primary}30`, borderRadius: 12, padding: 14 }}>
-                <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
-                  <span style={{ fontSize: 18 }}>🎬</span>
-                  <div>
-                    <p style={{ fontSize: 13, fontWeight: 700, color: T.purple }}>YouTube Unlisted or Google Drive</p>
-                    <p style={{ fontSize: 11, color: T.textMuted }}>Paste a YouTube or Google Drive video link below</p>
+              /* ── PAID LECTURE ── */
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+
+                {/* ── YouTube Unlisted — PRIMARY recommended ── */}
+                <div style={{ background: "rgba(239,68,68,0.07)", border: "1px solid rgba(239,68,68,0.28)", borderRadius: 12, padding: 14 }}>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
+                    <span style={{ fontSize: 20 }}>▶️</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <p style={{ fontSize: 13, fontWeight: 700, color: "#F87171", margin: 0 }}>YouTube Unlisted</p>
+                        <span style={{ fontSize: 10, fontWeight: 700, background: "rgba(239,68,68,0.2)", color: "#F87171", padding: "2px 8px", borderRadius: 99 }}>⭐ RECOMMENDED</span>
+                      </div>
+                      <p style={{ fontSize: 11, color: T.textMuted, margin: 0 }}>No download button • No "Open in browser" • Free • Unlimited storage</p>
+                    </div>
+                  </div>
+                  <input
+                    value={form.videoUrl}
+                    onChange={(e) => {
+                      let val = e.target.value.trim();
+                      const srcMatch = val.match(/src=["']([^"']+)["']/);
+                      if (srcMatch) val = srcMatch[1];
+                      const hrefMatch = val.match(/href=["']([^"']+)["']/);
+                      if (hrefMatch) val = hrefMatch[1];
+                      try {
+                        const u = new URL(val);
+                        u.searchParams.delete("width");
+                        u.searchParams.delete("height");
+                        val = u.toString();
+                      } catch (_) {}
+                      setForm(p => ({ ...p, videoUrl: val }));
+                    }}
+                    placeholder="https://youtu.be/xxxx  or  https://youtube.com/watch?v=xxxx"
+                    style={{ width: "100%", background: T.bgCard2, border: "1px solid rgba(239,68,68,0.25)", color: T.text, padding: "10px 14px", borderRadius: 8, fontSize: 13, outline: "none", boxSizing: "border-box" }}
+                  />
+                  {/* URL status */}
+                  {(() => {
+                    const v = form.videoUrl;
+                    if (!v) return null;
+                    const isYT      = v.includes("youtube.com") || v.includes("youtu.be");
+                    const isGD      = v.includes("drive.google.com");
+                    const isODEmbed = isOneDriveEmbedUrl(v);
+                    const isOD      = !isODEmbed && isOneDriveUrl(v);
+                    const hasHTML   = v.startsWith("<");
+                    if (hasHTML) return <p style={{ fontSize: 11, color: T.amber, marginTop: 6 }}>⚠ You pasted HTML — extract just the URL from <code>src="..."</code>.</p>;
+                    if (isYT)    return <p style={{ fontSize: 11, color: T.green,  marginTop: 6 }}>✅ YouTube URL detected — will use YouTube's player</p>;
+                    if (isGD)    return <p style={{ fontSize: 11, color: T.green,  marginTop: 6 }}>✅ Google Drive URL detected</p>;
+                    if (isODEmbed) return <p style={{ fontSize: 11, color: T.green, marginTop: 6 }}>✅ OneDrive embed URL detected</p>;
+                    if (isOD)    return <p style={{ fontSize: 11, color: T.amber,  marginTop: 6 }}>⚠ OneDrive share link won't work — use the Embed URL (see OneDrive section below).</p>;
+                    if (v.length > 5) return <p style={{ fontSize: 11, color: T.amber, marginTop: 6 }}>⚠ Paste a YouTube Unlisted, Google Drive, or OneDrive embed URL.</p>;
+                    return null;
+                  })()}
+                  <div style={{ marginTop: 10, padding: "8px 12px", background: T.bgCard2, borderRadius: 8, fontSize: 11, color: T.textMuted, lineHeight: 1.8 }}>
+                    <strong style={{ color: "#F87171" }}>How to upload to YouTube as Unlisted:</strong><br />
+                    1. Go to <strong style={{ color: "#F87171" }}>studio.youtube.com</strong> → Upload video<br />
+                    2. In Details → Visibility → select <strong style={{ color: "#F87171" }}>Unlisted</strong><br />
+                    3. Publish → copy the <code style={{ color: "#F87171", background: "rgba(239,68,68,0.08)", padding: "1px 4px", borderRadius: 3 }}>youtu.be/…</code> URL → paste above ✅
                   </div>
                 </div>
-                <input
-                  value={form.videoUrl}
-                  onChange={(e) => {
-                    let val = e.target.value.trim();
-                    // Auto-strip HTML tags — extract URL from <img src="..." /> or <iframe src="..." />
-                    const srcMatch = val.match(/src=["']([^"']+)["']/);
-                    if (srcMatch) val = srcMatch[1];
-                    // Also strip if user pasted the whole <a href="..."> or plain href
-                    const hrefMatch = val.match(/href=["']([^"']+)["']/);
-                    if (hrefMatch) val = hrefMatch[1];
-                    // Remove width/height query params that come from OneDrive img embeds
-                    try {
-                      const u = new URL(val);
-                      u.searchParams.delete("width");
-                      u.searchParams.delete("height");
-                      val = u.toString();
-                    } catch (_) {}
-                    setForm(p => ({ ...p, videoUrl: val }));
-                  }}
-                  placeholder="https://1drv.ms/v/c/...  or  https://youtu.be/xxxx  or  Google Drive link"
-                  style={{ width: "100%", background: T.bgCard2, border: `1px solid ${T.primary}35`, color: T.text, padding: "10px 14px", borderRadius: 8, fontSize: 13, outline: "none", boxSizing: "border-box" }}
-                />
-                {/* URL status */}
-                {(() => {
-                  const v = form.videoUrl;
-                  if (!v) return null;
-                  const isYT      = v.includes("youtube.com") || v.includes("youtu.be");
-                  const isGD      = v.includes("drive.google.com");
-                  const isODEmbed = isOneDriveEmbedUrl(v);
-                  const isOD      = !isODEmbed && isOneDriveUrl(v);
-                  const hasHTML   = v.startsWith("<");
 
-                  if (hasHTML) return (
-                    <p style={{ fontSize: 11, color: T.amber, marginTop: 6 }}>
-                      ⚠ You pasted HTML code — paste only the URL (the value inside <code>src="..."</code>).
-                    </p>
-                  );
-                  if (isODEmbed) return (
-                    <p style={{ fontSize: 11, color: T.green, marginTop: 6 }}>
-                      ✅ OneDrive embed URL detected — will play via Microsoft's player ✅
-                    </p>
-                  );
-                  if (isOD) return (
-                    <p style={{ fontSize: 11, color: T.amber, marginTop: 6 }}>
-                      ⚠ This is a share/view link — it won't work as a video source. Paste the embed <code style={{ background: "rgba(139,92,246,0.1)", padding: "1px 4px", borderRadius: 3 }}>src="..."</code> URL instead (see instructions below).
-                    </p>
-                  );
-                  if (isYT) return (
-                    <p style={{ fontSize: 11, color: T.green, marginTop: 6 }}>
-                      ✅ YouTube URL detected — will use YouTube's player
-                    </p>
-                  );
-                  if (isGD) return (
-                    <p style={{ fontSize: 11, color: T.green, marginTop: 6 }}>
-                      ✅ Google Drive URL detected — will play via Google's preview player
-                    </p>
-                  );
-                  if (v.length > 5) return (
-                    <p style={{ fontSize: 11, color: T.amber, marginTop: 6 }}>
-                      ⚠ Use a YouTube Unlisted URL or Google Drive share link.
-                    </p>
-                  );
-                  return null;
-                })()}
-                <div style={{ marginTop: 10, padding: "10px 12px", background: T.bgCard2, borderRadius: 8, fontSize: 11, color: T.textMuted, lineHeight: 1.9 }}>
-                  <strong style={{ color: T.text }}>📋 Supported video sources:</strong><br />
-                  <strong style={{ color: T.purple, fontSize: 10.5 }}>☁️ OneDrive (your 100 GB — recommended):</strong><br />
-                  <span style={{ color: T.textMuted }}>
-                    1. Right-click video → <strong style={{ color: T.purple }}>Embed</strong> → <strong style={{ color: T.purple }}>Generate</strong><br />
-                    2. Copy the URL shown (e.g. <code style={{ color: T.purple, background: "rgba(139,92,246,0.1)", padding: "1px 4px", borderRadius: 3 }}>1drv.ms/v/c/…</code>) — <strong style={{ color: T.green }}>no &amp;e=… at the end</strong><br />
-                    3. Paste here ✅ &nbsp;<span style={{ color: T.textMuted, fontSize: 10 }}>(The URL in the Embed dialog without "Include HTML tags" works perfectly)</span>
-                  </span><br />
-                  <strong style={{ color: "#F87171", fontSize: 10.5 }}>▶ YouTube Unlisted (unlimited free — easiest):</strong><br />
-                  <span style={{ color: T.textMuted }}>
-                    Upload → set <strong style={{ color: "#F87171" }}>Unlisted</strong> → paste <code style={{ color: "#F87171", background: "rgba(239,68,68,0.08)", padding: "1px 4px", borderRadius: 3 }}>youtu.be/...</code> URL
-                  </span><br />
-                  <strong style={{ color: "#60A5FA", fontSize: 10.5 }}>📁 Google Drive (15 GB free):</strong><br />
-                  <span style={{ color: T.textMuted }}>
-                    Share as <strong style={{ color: "#60A5FA" }}>Anyone with link → Viewer</strong> → paste Drive URL
-                  </span>
+                {/* ── Divider ── */}
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ flex: 1, height: 1, background: T.border }} />
+                  <span style={{ fontSize: 10, color: T.textMuted }}>or use other sources</span>
+                  <div style={{ flex: 1, height: 1, background: T.border }} />
                 </div>
+
+                {/* ── Other sources: OneDrive + Google Drive ── */}
+                <div style={{ padding: "10px 12px", background: T.bgCard2, borderRadius: 10, fontSize: 11, color: T.textMuted, lineHeight: 1.9 }}>
+                  <strong style={{ color: "#60A5FA", fontSize: 10.5 }}>📁 Google Drive (15 GB free):</strong><br />
+                  <span>Share as <strong style={{ color: "#60A5FA" }}>Anyone with link → Viewer</strong> → paste Drive URL</span><br />
+                  <strong style={{ color: T.purple, fontSize: 10.5 }}>☁️ OneDrive (your 100 GB):</strong><br />
+                  <span>Right-click video → <strong style={{ color: T.purple }}>Embed</strong> → <strong style={{ color: T.purple }}>Generate</strong> → copy the <code style={{ color: T.purple, background: "rgba(139,92,246,0.1)", padding: "1px 4px", borderRadius: 3 }}>1drv.ms/v/c/…</code> URL (no <code style={{ color: T.purple }}>?e=</code> at the end)</span>
+                </div>
+
               </div>
             )}
           </div>
