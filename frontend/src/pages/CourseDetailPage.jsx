@@ -535,10 +535,10 @@ export default function CourseDetailPage() {
               {[
                 { icon: "⭐", val: `${course.rating} (${(course.totalStudents || 0).toLocaleString("en-IN")} students)` },
                 { icon: "📹", val: `${course.totalLectures || 0} lectures` },
-                { icon: "⏱", val: fmtDuration(course.totalDuration || 0) },
+                course.totalDuration > 0 ? { icon: "⏱", val: fmtDuration(course.totalDuration) } : null,
                 { icon: "📊", val: course.level },
                 { icon: "👨‍🏫", val: `by ${course.instructorName}` },
-              ].map((m) => (
+              ].filter(Boolean).map((m) => (
                 <span key={m.val} className="text-sm text-white/50 flex items-center gap-1.5">
                   <span>{m.icon}</span>{m.val}
                 </span>
@@ -608,7 +608,7 @@ export default function CourseDetailPage() {
                 <div className="flex items-center gap-4 text-sm text-white/40 mb-5 pb-5 border-b border-white/[0.07]">
                   <span>📦 {(course.sections || []).length} sections</span>
                   <span>📹 {course.totalLectures || 0} lectures</span>
-                  <span>⏱ {fmtDuration(course.totalDuration || 0)} total length</span>
+                  {course.totalDuration > 0 && <span>⏱ {fmtDuration(course.totalDuration)} total length</span>}
                   <button
                     className="ml-auto text-primary text-xs hover:text-primary-light font-semibold"
                     onClick={() => {
