@@ -229,6 +229,7 @@ function OneDriveEmbedPlayer({ src }) {
         style={{ display: "block" }}
         frameBorder="0"
         scrolling="no"
+        sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-pointer-lock allow-presentation allow-orientation-lock"
       />
     </div>
   );
