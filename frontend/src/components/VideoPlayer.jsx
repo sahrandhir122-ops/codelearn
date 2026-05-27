@@ -60,25 +60,42 @@ export function isOneDriveUrl(url) {
 }
 
 /**
- * Convert a OneDrive embed URL to a direct download URL.
- * Embed:    https://onedrive.live.com/embed?resid=XXX&authkey=YYY&em=2
- * Download: https://onedrive.live.com/download?resid=XXX&authkey=YYY
- * If it's already a download URL or unrecognised, returns as-is.
+ * Convert any OneDrive URL into an embed URL suitable for an <iframe>.
+ * OneDrive videos CANNOT be streamed via HTML5 <video> due to CORS.
+ * The iframe approach uses Microsoft's own player — no CORS issue.
+ *
+ * Handles:
+ *   /download?resid=X&authkey=Y  → /embed?resid=X&authkey=Y&em=2
+ *   /embed?resid=X&authkey=Y     → as-is (ensure em=2 present)
+ *   1drv.ms/v/...                → returns null (can't convert short links)
  */
-export function normalizeOneDriveUrl(url) {
-  if (!url) return url;
+export function toOneDriveEmbedUrl(url) {
+  if (!url) return null;
   try {
     const u = new URL(url);
-    if (
-      (u.hostname === "onedrive.live.com" || u.hostname === "d.docs.live.net") &&
-      u.pathname.startsWith("/embed")
-    ) {
-      u.pathname = "/download";
-      u.searchParams.delete("em");
-      return u.toString();
+    if (u.hostname === "onedrive.live.com" || u.hostname === "d.docs.live.net") {
+      if (u.pathname.startsWith("/download")) {
+        u.pathname = "/embed";
+        u.searchParams.set("em", "2");
+        return u.toString();
+      }
+      if (u.pathname.startsWith("/embed")) {
+        if (!u.searchParams.has("em")) u.searchParams.set("em", "2");
+        return u.toString();
+      }
     }
+    // SharePoint video URLs — try as-is in iframe
+    if (u.hostname.endsWith(".sharepoint.com")) return url;
   } catch (_) {}
-  return url;
+  return null; // 1drv.ms short links cannot be converted client-side
+}
+
+/**
+ * @deprecated - kept for CourseBuilder auto-fix button backwards compat.
+ * Was previously used to convert embed→download. Now both formats are accepted.
+ */
+export function normalizeOneDriveUrl(url) {
+  return toOneDriveEmbedUrl(url) || url;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -116,6 +133,51 @@ function YouTubePlayer({ src, autoPlay }) {
         src={embedUrl}
         title="YouTube video"
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allowFullScreen
+        className="w-full h-full border-0"
+        style={{ display: "block" }}
+      />
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// OneDrivePlayer — iframe embed using Microsoft's own player (bypasses CORS)
+// ─────────────────────────────────────────────────────────────────────────────
+function OneDrivePlayer({ src }) {
+  const embedUrl = toOneDriveEmbedUrl(src);
+
+  if (!embedUrl) {
+    // 1drv.ms short links can't be converted — show instructions
+    return (
+      <div
+        className="w-full flex items-center justify-center bg-black text-center p-8"
+        style={{ minHeight: 300 }}
+      >
+        <div className="max-w-sm">
+          <div className="text-4xl mb-3">☁️</div>
+          <p className="text-white/70 font-semibold mb-3">
+            Can't embed this OneDrive link
+          </p>
+          <div className="text-left text-xs text-white/40 space-y-1.5 bg-white/[0.04] rounded-xl p-4">
+            <p className="text-white/60 font-semibold mb-2">Short share links (1drv.ms) don't support embedding. Fix:</p>
+            <p>1. Open the OneDrive link in your browser</p>
+            <p>2. Click <strong className="text-white/70">⋯</strong> (more options)</p>
+            <p>3. Click <strong className="text-white/70">Embed</strong></p>
+            <p>4. Copy the <code className="text-purple-400">src="..."</code> URL from the iframe code</p>
+            <p>5. Paste that URL in Course Builder instead</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full bg-black" style={{ aspectRatio: "16/9" }}>
+      <iframe
+        src={embedUrl}
+        title="OneDrive video"
+        allow="autoplay; fullscreen"
         allowFullScreen
         className="w-full h-full border-0"
         style={{ display: "block" }}
@@ -499,21 +561,29 @@ const HTML5Player = forwardRef(function HTML5Player(
 
 // ─────────────────────────────────────────────────────────────────────────────
 // VideoPlayer — pure router, zero hooks, no Rules-of-Hooks violation
+//
+//  Routing logic:
+//    YouTube URL  → YouTubePlayer  (YouTube iframe, no CORS issue)
+//    OneDrive URL → OneDrivePlayer (Microsoft iframe, no CORS issue)
+//    Other URL    → HTML5Player    (custom controls, direct video stream)
 // ─────────────────────────────────────────────────────────────────────────────
 const VideoPlayer = forwardRef(function VideoPlayer(
   { src, onEnded, onError, autoPlay = true },
   forwardedRef
 ) {
-  // Auto-fix OneDrive embed URLs → download URLs so HTML5 <video> can stream them
-  const resolvedSrc = isOneDriveUrl(src) ? normalizeOneDriveUrl(src) : src;
-
-  if (getYouTubeId(resolvedSrc)) {
-    return <YouTubePlayer src={resolvedSrc} autoPlay={autoPlay} />;
+  // YouTube
+  if (getYouTubeId(src)) {
+    return <YouTubePlayer src={src} autoPlay={autoPlay} />;
   }
+  // OneDrive — use iframe embed to avoid CORS blocking
+  if (isOneDriveUrl(src)) {
+    return <OneDrivePlayer src={src} />;
+  }
+  // Everything else — Cloudinary, direct MP4, etc.
   return (
     <HTML5Player
       ref={forwardedRef}
-      src={resolvedSrc}
+      src={src}
       onEnded={onEnded}
       onError={onError}
       autoPlay={autoPlay}
