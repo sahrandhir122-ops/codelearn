@@ -74,6 +74,7 @@ export const paymentAPI = {
 export const userAPI = {
   getProfile: () => api.get("/users/profile"),
   updateProfile: (data) => api.put("/users/profile", data),
+  changePassword: (data) => api.post("/users/change-password", data),
   getWatchHistory: () => api.get("/users/watch-history"),
   updateWatchHistory: (data) => api.post("/users/watch-history", data),
   getEnrolledCourses: () => api.get("/users/enrolled-courses"),

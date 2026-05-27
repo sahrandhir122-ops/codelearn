@@ -10,5 +10,6 @@ router.put("/profile", userController.updateProfile);
 router.get("/watch-history", userController.getWatchHistory);
 router.post("/watch-history", userController.updateWatchHistory);
 router.get("/enrolled-courses", userController.getEnrolledCourses);
+router.post("/change-password", userController.changePassword);
 
 module.exports = router;
