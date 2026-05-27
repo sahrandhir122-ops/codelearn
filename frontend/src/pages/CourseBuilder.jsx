@@ -371,7 +371,7 @@ function LectureModal({ lecture, sectionId, courseId, onClose, onSaved }) {
                     } catch (_) {}
                     setForm(p => ({ ...p, videoUrl: val }));
                   }}
-                  placeholder="https://onedrive.live.com/embed?resid=...  or  https://youtu.be/xxxx  or  Google Drive link"
+                  placeholder="https://1drv.ms/v/c/...  or  https://youtu.be/xxxx  or  Google Drive link"
                   style={{ width: "100%", background: T.bgCard2, border: `1px solid ${T.primary}35`, color: T.text, padding: "10px 14px", borderRadius: 8, fontSize: 13, outline: "none", boxSizing: "border-box" }}
                 />
                 {/* URL status */}
@@ -418,12 +418,11 @@ function LectureModal({ lecture, sectionId, courseId, onClose, onSaved }) {
                 })()}
                 <div style={{ marginTop: 10, padding: "10px 12px", background: T.bgCard2, borderRadius: 8, fontSize: 11, color: T.textMuted, lineHeight: 1.9 }}>
                   <strong style={{ color: T.text }}>📋 Supported video sources:</strong><br />
-                  <strong style={{ color: T.purple, fontSize: 10.5 }}>☁️ OneDrive (your storage — use embed URL):</strong><br />
+                  <strong style={{ color: T.purple, fontSize: 10.5 }}>☁️ OneDrive (your 100 GB — recommended):</strong><br />
                   <span style={{ color: T.textMuted }}>
-                    1. Open <strong style={{ color: T.purple }}>OneDrive</strong> on the web → right-click video → <strong style={{ color: T.purple }}>Embed</strong><br />
-                    2. Click <strong style={{ color: T.purple }}>Generate</strong> → you'll see an <code style={{ color: T.purple, background: "rgba(139,92,246,0.1)", padding: "1px 4px", borderRadius: 3 }}>&lt;iframe src="..."&gt;</code> code<br />
-                    3. Copy <strong style={{ color: T.purple }}>only the URL</strong> inside <code style={{ color: T.purple, background: "rgba(139,92,246,0.1)", padding: "1px 4px", borderRadius: 3 }}>src="..."</code> (starts with <code style={{ color: T.purple, background: "rgba(139,92,246,0.1)", padding: "1px 4px", borderRadius: 3 }}>onedrive.live.com/embed?resid=</code>)<br />
-                    4. Paste that URL here ✅
+                    1. Right-click video → <strong style={{ color: T.purple }}>Embed</strong> → <strong style={{ color: T.purple }}>Generate</strong><br />
+                    2. Copy the URL shown (e.g. <code style={{ color: T.purple, background: "rgba(139,92,246,0.1)", padding: "1px 4px", borderRadius: 3 }}>1drv.ms/v/c/…</code>) — <strong style={{ color: T.green }}>no &amp;e=… at the end</strong><br />
+                    3. Paste here ✅ &nbsp;<span style={{ color: T.textMuted, fontSize: 10 }}>(The URL in the Embed dialog without "Include HTML tags" works perfectly)</span>
                   </span><br />
                   <strong style={{ color: "#F87171", fontSize: 10.5 }}>▶ YouTube Unlisted (unlimited free — easiest):</strong><br />
                   <span style={{ color: T.textMuted }}>

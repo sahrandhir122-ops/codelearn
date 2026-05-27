@@ -63,18 +63,23 @@ export function getGoogleDriveId(url) {
 // ── OneDrive URL type detection ───────────────────────────────────────────────
 
 /**
- * True for OneDrive embed URLs (gotten from OneDrive → "..." → Embed → Generate).
- * Format: https://onedrive.live.com/embed?resid=...&authkey=!...&em=2
- * These work in <iframe> — Microsoft designed them for embedding.
+ * True for OneDrive URLs that can be used in an <iframe> embed:
+ *  1. onedrive.live.com/embed?resid=...&authkey=!...  (full embed URL from Embed dialog)
+ *  2. 1drv.ms/v/... WITHOUT ?e=TOKEN  (clean link → redirects to /embed, no X-Frame-Options)
+ *
+ * NOT included: 1drv.ms/v/...?e=TOKEN  (share/view link → goes to web player, X-Frame: DENY)
  */
 export function isOneDriveEmbedUrl(url) {
   if (!url) return false;
   try {
     const u = new URL(url);
-    return (
+    // Standard embed URL
+    if (
       (u.hostname === "onedrive.live.com" || u.hostname === "d.docs.live.net") &&
       u.pathname.startsWith("/embed")
-    );
+    ) return true;
+    // Clean 1drv.ms link (no ?e= token) — redirects to /embed&embed=1, works in iframe
+    if (u.hostname === "1drv.ms" && !u.searchParams.has("e")) return true;
   } catch (_) {}
   return false;
 }
@@ -245,13 +250,10 @@ function OneDriveErrorCard() {
           You need the <strong className="text-white/60">embed URL</strong> instead.
         </p>
         <div className="text-left text-xs text-white/40 bg-white/[0.04] rounded-xl p-4 space-y-2">
-          <p className="text-white/70 font-semibold mb-2">How to get the embed URL:</p>
-          <p>1. Open <strong className="text-white/60">OneDrive</strong> on the web</p>
-          <p>2. Right-click the video file → click <strong className="text-white/60">Embed</strong></p>
-          <p>3. Click <strong className="text-white/60">Generate</strong></p>
-          <p>4. In the &lt;iframe&gt; code, copy just the <code className="text-purple-400">src="..."</code> URL</p>
-          <p>5. Paste that URL in the Course Builder</p>
-          <p className="mt-2 text-white/30">The embed URL starts with <code className="text-purple-400">https://onedrive.live.com/embed?resid=</code></p>
+          <p className="text-white/70 font-semibold mb-2">How to fix — 2 steps:</p>
+          <p>1. Right-click the video in OneDrive → <strong className="text-white/60">Embed</strong> → <strong className="text-white/60">Generate</strong></p>
+          <p>2. Copy the URL shown (looks like <code className="text-purple-400">1drv.ms/v/c/…</code>) and paste it in Course Builder</p>
+          <p className="mt-2 text-yellow-400/60">⚠ The URL you have ends with <code className="text-purple-400">?e=…</code> — that's a share link, not an embed link. The embed URL has no <code className="text-purple-400">?e=</code>.</p>
         </div>
       </div>
     </div>
