@@ -44,6 +44,21 @@ function getYouTubeId(url) {
   return null;
 }
 
+// Detect OneDrive / SharePoint URLs — routed to HTML5Player as direct video stream
+export function isOneDriveUrl(url) {
+  if (!url) return false;
+  try {
+    const h = new URL(url).hostname;
+    return (
+      h === "onedrive.live.com"   ||
+      h === "1drv.ms"             ||
+      h === "d.docs.live.net"     ||
+      h.endsWith(".sharepoint.com")
+    );
+  } catch (_) {}
+  return false;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Volume icon (shared SVG paths)
 // ─────────────────────────────────────────────────────────────────────────────

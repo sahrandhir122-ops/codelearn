@@ -3,14 +3,15 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { courseAPI, uploadAPI } from "../api";
+import { isOneDriveUrl } from "../components/VideoPlayer";
 
-// ─── Design tokens (same palette as AdminDashboard) ────────────────────────
+// ─── Design tokens — Purple theme (matches AdminDashboard) ─────────────────
 const T = {
-  bg: "#080B14", bgCard: "#0D1120", bgCard2: "#111827",
-  border: "rgba(99,179,237,0.08)", border2: "rgba(99,179,237,0.18)",
-  primary: "#3B82F6", green: "#10B981", red: "#EF4444",
-  amber: "#F59E0B", purple: "#8B5CF6",
-  text: "#E2E8F0", textMuted: "#64748B", textDim: "#334155",
+  bg: "#08051A", bgCard: "#0F0B28", bgCard2: "#170F35",
+  border: "rgba(139,92,246,0.12)", border2: "rgba(139,92,246,0.28)",
+  primary: "#7C3AED", green: "#10B981", red: "#EF4444",
+  amber: "#F59E0B", purple: "#A855F7",
+  text: "#E2E8F0", textMuted: "#94A3B8", textDim: "#3D2A6B",
 };
 
 const fmtDuration = (s) => {
@@ -293,24 +294,94 @@ function LectureModal({ lecture, sectionId, courseId, onClose, onSaved }) {
               style={{ width: "100%", background: T.bgCard2, border: `1px solid ${T.border}`, color: T.text, padding: "10px 14px", borderRadius: 10, fontSize: 14, outline: "none", resize: "vertical", boxSizing: "border-box" }} />
           </div>
 
-          {/* Video Upload */}
+          {/* ── Video Source — smart dual mode ── */}
           <div>
-            <label style={{ fontSize: 12, color: T.textMuted, display: "block", marginBottom: 8 }}>Lecture Video</label>
-            <VideoUploader
-              existingUrl={form.videoUrl}
-              onUploaded={(url) => setForm(p => ({ ...p, videoUrl: url }))}
-            />
-            {/* Or paste URL manually */}
-            <input
-              value={form.videoUrl}
-              onChange={(e) => setForm(p => ({ ...p, videoUrl: e.target.value }))}
-              placeholder="Or paste YouTube / video URL directly…"
-              style={{ width: "100%", background: T.bgCard2, border: `1px solid ${T.border}`, color: T.text, padding: "8px 14px", borderRadius: 8, fontSize: 13, outline: "none", boxSizing: "border-box", marginTop: 8 }}
-            />
-            {form.videoUrl && (form.videoUrl.includes("youtube.com") || form.videoUrl.includes("youtu.be")) && (
-              <p style={{ fontSize: 11, color: T.green, marginTop: 4 }}>
-                ✅ YouTube URL detected — will embed as YouTube player
-              </p>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+              <label style={{ fontSize: 12, color: T.textMuted }}>Lecture Video</label>
+              {/* Badge showing recommended source based on isFree */}
+              <span style={{
+                fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 99,
+                background: form.isFree ? "rgba(239,68,68,0.15)" : `${T.primary}22`,
+                color: form.isFree ? "#F87171" : T.purple,
+              }}>
+                {form.isFree ? "▶ Free → YouTube Unlisted" : "🔒 Paid → OneDrive Link"}
+              </span>
+            </div>
+
+            {form.isFree ? (
+              /* ── FREE LECTURE: YouTube ── */
+              <div style={{ background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 12, padding: 14 }}>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
+                  <span style={{ fontSize: 18 }}>▶️</span>
+                  <div>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: "#F87171" }}>YouTube Unlisted video</p>
+                    <p style={{ fontSize: 11, color: T.textMuted }}>Upload to YouTube → Set as Unlisted → Paste link below</p>
+                  </div>
+                </div>
+                <input
+                  value={form.videoUrl}
+                  onChange={(e) => setForm(p => ({ ...p, videoUrl: e.target.value }))}
+                  placeholder="https://youtu.be/xxxx  or  https://youtube.com/watch?v=xxxx"
+                  style={{ width: "100%", background: T.bgCard2, border: `1px solid rgba(239,68,68,0.25)`, color: T.text, padding: "10px 14px", borderRadius: 8, fontSize: 13, outline: "none", boxSizing: "border-box" }}
+                />
+                {/* URL status */}
+                {form.videoUrl && (form.videoUrl.includes("youtube.com") || form.videoUrl.includes("youtu.be")) && (
+                  <p style={{ fontSize: 11, color: T.green, marginTop: 6, display: "flex", alignItems: "center", gap: 4 }}>
+                    ✅ YouTube URL detected — will use YouTube's player
+                  </p>
+                )}
+                {form.videoUrl && !form.videoUrl.includes("youtube.com") && !form.videoUrl.includes("youtu.be") && (
+                  <p style={{ fontSize: 11, color: T.amber, marginTop: 6 }}>
+                    ⚠ This doesn't look like a YouTube URL. Free lectures should use YouTube Unlisted.
+                  </p>
+                )}
+                <div style={{ marginTop: 10, padding: "8px 10px", background: T.bgCard2, borderRadius: 8, fontSize: 11, color: T.textMuted, lineHeight: 1.7 }}>
+                  <strong style={{ color: T.text }}>How to get an Unlisted YouTube link:</strong><br />
+                  1. Upload video on YouTube Studio<br />
+                  2. Set Visibility → <strong style={{ color: "#F87171" }}>Unlisted</strong> (not Private or Public)<br />
+                  3. Copy the video URL and paste above
+                </div>
+              </div>
+            ) : (
+              /* ── PAID LECTURE: OneDrive ── */
+              <div style={{ background: `${T.primary}08`, border: `1px solid ${T.primary}30`, borderRadius: 12, padding: 14 }}>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
+                  <span style={{ fontSize: 18 }}>☁️</span>
+                  <div>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: T.purple }}>OneDrive download link</p>
+                    <p style={{ fontSize: 11, color: T.textMuted }}>Upload to OneDrive → Get download link → Paste below</p>
+                  </div>
+                </div>
+                <input
+                  value={form.videoUrl}
+                  onChange={(e) => setForm(p => ({ ...p, videoUrl: e.target.value }))}
+                  placeholder="https://onedrive.live.com/download?resid=XXX&authkey=XXX"
+                  style={{ width: "100%", background: T.bgCard2, border: `1px solid ${T.primary}35`, color: T.text, padding: "10px 14px", borderRadius: 8, fontSize: 13, outline: "none", boxSizing: "border-box" }}
+                />
+                {/* URL status */}
+                {form.videoUrl && isOneDriveUrl(form.videoUrl) && (
+                  <p style={{ fontSize: 11, color: T.green, marginTop: 6 }}>
+                    ✅ OneDrive URL detected — will play in built-in video player
+                  </p>
+                )}
+                {form.videoUrl && !isOneDriveUrl(form.videoUrl) && !form.videoUrl.includes("youtube") && (
+                  <p style={{ fontSize: 11, color: T.amber, marginTop: 6 }}>
+                    ⚠ Non-OneDrive URL. Make sure it's a direct video/download link.
+                  </p>
+                )}
+                {form.videoUrl && (form.videoUrl.includes("youtube.com") || form.videoUrl.includes("youtu.be")) && (
+                  <p style={{ fontSize: 11, color: T.amber, marginTop: 6 }}>
+                    ⚠ YouTube URL on a paid lecture — toggle "Free Preview" ON if this is a demo.
+                  </p>
+                )}
+                <div style={{ marginTop: 10, padding: "8px 10px", background: T.bgCard2, borderRadius: 8, fontSize: 11, color: T.textMuted, lineHeight: 1.7 }}>
+                  <strong style={{ color: T.text }}>How to get an OneDrive download link:</strong><br />
+                  1. Upload video to <strong style={{ color: T.purple }}>OneDrive</strong> (you have 100 GB)<br />
+                  2. Right-click → Share → <strong style={{ color: T.purple }}>Anyone with link</strong><br />
+                  3. Open link in browser → click ⋯ → <strong style={{ color: T.purple }}>Embed</strong><br />
+                  4. Copy the URL that contains <code style={{ color: T.purple }}>download?resid=</code>
+                </div>
+              </div>
             )}
           </div>
 
