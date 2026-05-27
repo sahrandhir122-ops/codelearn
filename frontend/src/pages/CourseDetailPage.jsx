@@ -964,7 +964,6 @@ export default function CourseDetailPage() {
                       This course includes
                     </p>
                     {[
-                      ["🎓", "Certificate of completion"],
                       ["📱", "Mobile & desktop access"],
                       ["♾️", "Full lifetime access"],
                       ["💬", "Community Q&A support"],

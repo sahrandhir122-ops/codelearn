@@ -224,7 +224,6 @@ export default function CartPage() {
                   What you get
                 </p>
                 {[
-                  ["🎓", "Certificates for each course"],
                   ["♾️", "Lifetime access"],
                   ["📱", "Mobile & desktop access"],
                   ["💬", "Community support"],

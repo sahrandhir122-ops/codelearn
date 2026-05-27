@@ -48,7 +48,7 @@ export default function ProfilePage() {
     }
   };
 
-  const TABS = ["courses", "history", "certificates", "settings"];
+  const TABS = ["courses", "history", "settings"];
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-12 animate-fade-in">
@@ -256,14 +256,6 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {/* ── Certificates ── */}
-      {tab === "certificates" && (
-        <div className="animate-fade-in text-center py-20">
-          <div className="text-5xl mb-4">🎓</div>
-          <p className="text-white/40 text-lg mb-2">No certificates yet</p>
-          <p className="text-white/30 text-sm">Complete a course to earn your certificate</p>
-        </div>
-      )}
 
       {/* ── Settings ── */}
       {tab === "settings" && (
