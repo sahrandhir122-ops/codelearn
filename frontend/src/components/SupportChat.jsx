@@ -1,8 +1,20 @@
 import { useState, useRef, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { supportAPI } from "../api";
 import useAuthStore from "../store/useAuthStore";
 
-const STORAGE_KEY = "cl_support_ticket";
+const STORAGE_KEY      = "cl_support_ticket";
+const PROACTIVE_KEY    = "cl_support_proactive_shown"; // don't show again after dismissed
+
+// Context-aware proactive messages per route prefix
+const PROACTIVE_MESSAGES = [
+  { match: "/cart",      delay: 6,  text: "🛒 Need help with payment or checkout? I'm here!" },
+  { match: "/courses/",  delay: 10, text: "💡 Have questions about this course? Ask me — I'll help you decide!" },
+  { match: "/courses",   delay: 12, text: "🎯 Not sure which course to pick? I can help you choose the right one!" },
+  { match: "/dashboard", delay: 8,  text: "📚 How's your learning going? Let me know if you face any issue." },
+  { match: "/profile",   delay: 8,  text: "👤 Need help with your account or settings? Just ask!" },
+  { match: "/",          delay: 15, text: "👋 Hi there! Need help with anything on CodeLearn? I'm available 24/7." },
+];
 
 const BOT_AVATAR = (
   <div style={{ width:28, height:28, borderRadius:"50%", flexShrink:0,
@@ -47,21 +59,56 @@ function renderText(text) {
 }
 
 export default function SupportChat() {
-  const { user } = useAuthStore();
+  const { user }   = useAuthStore();
+  const location   = useLocation();
 
-  const [open,      setOpen]      = useState(false);
-  const [input,     setInput]     = useState("");
-  const [loading,   setLoading]   = useState(false);
-  const [ticketId,  setTicketId]  = useState(() => localStorage.getItem(STORAGE_KEY) || null);
-  const [status,    setStatus]    = useState("open");
-  const [unread,    setUnread]    = useState(0);
-  const [fetching,  setFetching]  = useState(false);
-  const [messages,  setMessages]  = useState([
+  const [open,        setOpen]        = useState(false);
+  const [input,       setInput]       = useState("");
+  const [loading,     setLoading]     = useState(false);
+  const [ticketId,    setTicketId]    = useState(() => localStorage.getItem(STORAGE_KEY) || null);
+  const [status,      setStatus]      = useState("open");
+  const [unread,      setUnread]      = useState(0);
+  const [fetching,    setFetching]    = useState(false);
+  const [messages,    setMessages]    = useState([
     { role:"assistant", content:GREETING, isAI:true, _id:"greeting" },
   ]);
+  const [proactive,   setProactive]   = useState(null);  // { text, visible }
+  const proactiveRef  = useRef(null);
 
   const bottomRef = useRef(null);
   const inputRef  = useRef(null);
+
+  // ── Proactive message logic ─────────────────────────────────────────────
+  useEffect(() => {
+    // Don't show if already dismissed globally, or chat is open, or there's a ticket
+    if (sessionStorage.getItem(PROACTIVE_KEY)) return;
+    if (open) return;
+
+    // Pick message based on current path
+    const path = location.pathname;
+    const cfg  = PROACTIVE_MESSAGES.find(m => path.startsWith(m.match)) || PROACTIVE_MESSAGES[PROACTIVE_MESSAGES.length - 1];
+
+    // Clear any previous timer
+    if (proactiveRef.current) clearTimeout(proactiveRef.current);
+    setProactive(null);
+
+    proactiveRef.current = setTimeout(() => {
+      if (!open) setProactive({ text: cfg.text, visible: true });
+    }, cfg.delay * 1000);
+
+    return () => { if (proactiveRef.current) clearTimeout(proactiveRef.current); };
+  }, [location.pathname]);
+
+  const dismissProactive = (e) => {
+    e?.stopPropagation();
+    setProactive(null);
+    sessionStorage.setItem(PROACTIVE_KEY, "1");
+  };
+
+  const openFromProactive = () => {
+    dismissProactive();
+    setOpen(true);
+  };
 
   // Load existing ticket on mount
   useEffect(() => {
@@ -85,7 +132,11 @@ export default function SupportChat() {
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior:"smooth" }); }, [messages, open]);
   useEffect(() => {
-    if (open) { setTimeout(() => inputRef.current?.focus(), 120); setUnread(0); }
+    if (open) {
+      setTimeout(() => inputRef.current?.focus(), 120);
+      setUnread(0);
+      setProactive(null); // hide proactive when chat opens
+    }
   }, [open]);
 
   const sendMessage = async (text) => {
@@ -149,6 +200,10 @@ export default function SupportChat() {
         @keyframes dotBounce {
           0%,80%,100% { transform:translateY(0); }
           40%         { transform:translateY(-5px); }
+        }
+        @keyframes supportPulse {
+          0%,100% { box-shadow:0 4px 24px rgba(232,71,26,0.5),0 0 0 4px rgba(232,71,26,0.12); }
+          50%     { box-shadow:0 4px 32px rgba(232,71,26,0.75),0 0 0 9px rgba(232,71,26,0.07); }
         }
         .cl-chat-scroll::-webkit-scrollbar { width:3px; }
         .cl-chat-scroll::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.1); border-radius:2px; }
@@ -323,9 +378,97 @@ export default function SupportChat() {
         </div>
       )}
 
+      {/* ── Proactive bubble ── */}
+      {proactive?.visible && !open && (
+        <div
+          onClick={openFromProactive}
+          style={{
+            position:"fixed", bottom:86, right:20, zIndex:998,
+            maxWidth:270, cursor:"pointer",
+            animation:"proactivePop 0.35s cubic-bezier(.22,.68,0,1.2) forwards",
+          }}
+        >
+          <style>{`
+            @keyframes proactivePop {
+              from { opacity:0; transform:translateY(10px) scale(0.95); }
+              to   { opacity:1; transform:translateY(0) scale(1); }
+            }
+          `}</style>
+          <div style={{
+            background:"#1a1130",
+            border:"1px solid rgba(232,71,26,0.3)",
+            borderRadius:"16px 16px 4px 16px",
+            padding:"11px 14px",
+            boxShadow:"0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04)",
+            position:"relative",
+          }}>
+            {/* Dismiss × */}
+            <button
+              onClick={dismissProactive}
+              style={{
+                position:"absolute", top:5, right:7,
+                background:"none", border:"none",
+                color:"rgba(255,255,255,0.3)", fontSize:14,
+                cursor:"pointer", lineHeight:1, padding:2,
+              }}
+            >×</button>
+
+            {/* Bot row */}
+            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:7 }}>
+              <div style={{
+                width:28, height:28, borderRadius:"50%", flexShrink:0,
+                background:"linear-gradient(135deg,#E8471A,#F5B731)",
+                display:"flex", alignItems:"center", justifyContent:"center",
+                fontSize:13, fontWeight:900, color:"#fff",
+              }}>C</div>
+              <div>
+                <p style={{ fontSize:11, fontWeight:700, color:"#fff", margin:0 }}>CodeLearn Support</p>
+                <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+                  <div style={{ width:5, height:5, borderRadius:"50%", background:"#10B981" }} />
+                  <span style={{ fontSize:9, color:"rgba(255,255,255,0.4)" }}>Online now</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Message */}
+            <p style={{ fontSize:12, color:"rgba(255,255,255,0.82)", lineHeight:1.5, margin:0, paddingRight:12 }}>
+              {proactive.text}
+            </p>
+
+            {/* CTA */}
+            <div style={{ marginTop:9, display:"flex", gap:6 }}>
+              <button
+                onClick={openFromProactive}
+                style={{
+                  background:"linear-gradient(135deg,#E8471A,#c9360d)",
+                  color:"#fff", border:"none", borderRadius:8,
+                  padding:"5px 12px", fontSize:11, fontWeight:700, cursor:"pointer",
+                  boxShadow:"0 2px 8px rgba(232,71,26,0.35)",
+                }}>
+                Chat now
+              </button>
+              <button
+                onClick={dismissProactive}
+                style={{ background:"rgba(255,255,255,0.07)", color:"rgba(255,255,255,0.5)", border:"none", borderRadius:8, padding:"5px 10px", fontSize:11, cursor:"pointer" }}>
+                Dismiss
+              </button>
+            </div>
+          </div>
+
+          {/* Triangle pointer */}
+          <div style={{
+            position:"absolute", bottom:-8, right:18,
+            width:0, height:0,
+            borderLeft:"8px solid transparent",
+            borderRight:"8px solid transparent",
+            borderTop:"8px solid rgba(232,71,26,0.3)",
+          }} />
+        </div>
+      )}
+
       {/* ── Floating button ── */}
       <button
-        onClick={() => setOpen(p => !p)}
+        onClick={() => { setOpen(p => !p); dismissProactive(); }}
         title={open ? "Close support" : "Get help"}
         style={{
           position:"fixed", bottom:20, right:20, zIndex:1000,
@@ -335,6 +478,7 @@ export default function SupportChat() {
           display:"flex", alignItems:"center", justifyContent:"center",
           fontSize: open ? 20 : 24,
           boxShadow: open ? "none" : "0 4px 24px rgba(232,71,26,0.5), 0 0 0 4px rgba(232,71,26,0.12)",
+          animation: !open && proactive?.visible ? "supportPulse 2s ease-in-out infinite" : "none",
           transition:"all 0.25s cubic-bezier(.22,.68,0,1.2)",
           transform: open ? "scale(0.92)" : "scale(1)",
         }}
