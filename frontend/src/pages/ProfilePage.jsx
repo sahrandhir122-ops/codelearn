@@ -27,6 +27,14 @@ export default function ProfilePage() {
     staleTime: 60_000,
   });
 
+  // ── Watch history (for progress calculation) ────────────────────────────
+  const { data: watchData } = useQuery({
+    queryKey: ["watch-history"],
+    queryFn: () => userAPI.getWatchHistory().then((r) => r.data.data.watchHistory),
+    staleTime: 60_000,
+  });
+  const watchHistory = watchData || [];
+
   // ── Purchase history ────────────────────────────────────────────────────
   const { data: historyData, isLoading: historyLoading } = useQuery({
     queryKey: ["payment-history"],
@@ -200,6 +208,16 @@ export default function ProfilePage() {
                 const totalLectures = (course.sections || []).reduce(
                   (s, sec) => s + (sec.lectures?.length || 0), 0
                 );
+                const completedCount = watchHistory.filter(
+                  (w) =>
+                    (w.course?._id || w.course)?.toString() === course._id.toString() &&
+                    w.progress >= 100
+                ).length;
+                const progressPct = totalLectures > 0
+                  ? Math.min(100, Math.round((completedCount / totalLectures) * 100))
+                  : 0;
+                const isDone = progressPct === 100;
+
                 return (
                   <div
                     key={course._id}
@@ -220,15 +238,25 @@ export default function ProfilePage() {
                           {totalLectures > 0 && ` · ${totalLectures} lectures`}
                         </p>
                         <div className="h-1.5 bg-white/[0.07] rounded-full mb-1.5 overflow-hidden">
-                          <div className="h-full bg-primary rounded-full w-0 transition-all" />
+                          <div
+                            className="h-full rounded-full transition-all duration-500"
+                            style={{
+                              width: `${progressPct}%`,
+                              background: isDone
+                                ? "linear-gradient(90deg,#10B981,#059669)"
+                                : "linear-gradient(90deg,#E8471A,#F5B731)",
+                            }}
+                          />
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className="text-xs text-white/30">0% complete</span>
+                          <span className="text-xs" style={{ color: isDone ? "#10B981" : "rgba(255,255,255,0.35)" }}>
+                            {isDone ? "✓ Completed" : `${progressPct}% · ${completedCount}/${totalLectures} lectures`}
+                          </span>
                           <Link
                             to={`/learn/${course._id}`}
                             className="text-xs text-primary font-semibold hover:text-primary-light"
                           >
-                            ▶ Continue →
+                            {isDone ? "Review →" : "▶ Continue →"}
                           </Link>
                         </div>
                       </div>

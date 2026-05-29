@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import toast from "react-hot-toast";
-import { courseAPI } from "../api";
+import { courseAPI, userAPI } from "../api";
 import useAuthStore from "../store/useAuthStore";
 import VideoPlayer from "../components/VideoPlayer";
 
@@ -185,6 +185,23 @@ export default function LearnPage() {
   const [sideOpen,    setSideOpen]    = useState(() => window.innerWidth >= 1024);
   const [ratingModal, setRatingModal] = useState(false);
 
+  // ── Load existing watch history to restore completed state ─────────────────
+  const { data: watchHistory } = useQuery({
+    queryKey: ["watch-history"],
+    queryFn: () => userAPI.getWatchHistory().then(r => r.data.data.watchHistory),
+    staleTime: 60_000,
+    enabled: !!user,
+  });
+
+  useEffect(() => {
+    if (!watchHistory || !id) return;
+    const map = {};
+    watchHistory
+      .filter(w => (w.course?._id || w.course)?.toString() === id)
+      .forEach(w => { if (w.progress >= 100) map[w.lecture?.toString()] = true; });
+    if (Object.keys(map).length > 0) setCompleted(prev => ({ ...map, ...prev }));
+  }, [watchHistory, id]);
+
   const videoRef = useRef();
 
   // ── Auth guard ─────────────────────────────────────────────────────────────
@@ -235,7 +252,11 @@ export default function LearnPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const markCompleted = (lecId) => setCompleted(p => ({ ...p, [lecId]: true }));
+  const markCompleted = (lecId) => {
+    if (completed[lecId]) return;
+    setCompleted(p => ({ ...p, [lecId]: true }));
+    userAPI.updateWatchHistory({ courseId: id, lectureId: lecId, progress: 100 }).catch(() => {});
+  };
 
   const handleVideoEnded = () => {
     if (activeLec) markCompleted(activeLec.lec._id);
