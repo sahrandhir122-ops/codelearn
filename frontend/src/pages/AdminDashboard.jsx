@@ -1216,19 +1216,20 @@ function SupportPage({ notify }) {
   const [filter,     setFilter]     = useState("all");
   const qc = useQueryClient();
 
-  const { data: listData, isLoading: listLoading } = useQuery({
+  const { data: listData, isLoading: listLoading, refetch: refetchList } = useQuery({
     queryKey: ["support-tickets", filter],
     queryFn: () => supportAPI.getAllTickets({ status: filter === "all" ? undefined : filter, limit: 50 })
       .then(r => r.data),
-    staleTime: 15_000,
-    refetchInterval: 30_000,
+    staleTime: 0,
+    refetchInterval: 15_000,
   });
 
   const { data: ticketData, isLoading: ticketLoading } = useQuery({
     queryKey: ["support-ticket", selectedId],
     queryFn: () => supportAPI.getTicketAdmin(selectedId).then(r => r.data.data.ticket),
     enabled: !!selectedId,
-    staleTime: 10_000,
+    staleTime: 0,
+    refetchInterval: 15_000,
   });
 
   const tickets    = listData?.data?.tickets || [];
@@ -1274,7 +1275,7 @@ function SupportPage({ notify }) {
       {/* ── Left: ticket list ── */}
       <div style={{ width:300, flexShrink:0, display:"flex", flexDirection:"column", gap:10 }}>
         {/* Stats + filter */}
-        <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+        <div style={{ display:"flex", gap:6, flexWrap:"wrap", alignItems:"center" }}>
           {["all","open","in_progress","resolved"].map(f => (
             <button key={f} onClick={() => setFilter(f)}
               style={{
@@ -1282,9 +1283,15 @@ function SupportPage({ notify }) {
                 background: filter === f ? T.primary : T.bgCard2,
                 color: filter === f ? "#fff" : T.textMuted,
               }}>
-              {f === "all" ? `All ${unreadCount > 0 ? `(${unreadCount} new)` : ""}` : STATUS_LABEL[f]}
+              {f === "all" ? `All${unreadCount > 0 ? ` (${unreadCount} new)` : ""}` : STATUS_LABEL[f]}
             </button>
           ))}
+          <button
+            onClick={() => { refetchList(); qc.invalidateQueries({ queryKey: ["support-ticket"] }); }}
+            title="Refresh"
+            style={{ marginLeft:"auto", padding:"5px 10px", borderRadius:8, fontSize:12, cursor:"pointer", fontWeight:600, border:`1px solid ${T.border}`, background:T.bgCard2, color:T.textMuted }}>
+            ↺ Refresh
+          </button>
         </div>
 
         {/* Ticket list */}
