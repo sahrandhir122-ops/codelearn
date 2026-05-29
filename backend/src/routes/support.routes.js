@@ -1,11 +1,19 @@
 const express = require("express");
 const router  = express.Router();
-const supportController = require("../controllers/support.controller");
+const ctrl    = require("../controllers/support.controller");
+const { protect, restrictTo, optionalAuth } = require("../middleware/auth.middleware");
 const { apiLimiter } = require("../middleware/rateLimiter");
 
-// Rate-limit chat to 30 req/15min per IP to control API costs
 router.use(apiLimiter);
 
-router.post("/chat", supportController.chat);
+// ── User / guest ───────────────────────────────────────────────────────────
+router.post("/chat",          optionalAuth, ctrl.chat);
+router.get("/ticket/:id",                  ctrl.getTicket);
+
+// ── Admin ──────────────────────────────────────────────────────────────────
+router.get("/admin/tickets",               protect, restrictTo("admin"), ctrl.getAllTickets);
+router.get("/admin/tickets/:id",           protect, restrictTo("admin"), ctrl.getTicketAdmin);
+router.post("/admin/tickets/:id/reply",    protect, restrictTo("admin"), ctrl.adminReply);
+router.patch("/admin/tickets/:id/status",  protect, restrictTo("admin"), ctrl.updateStatus);
 
 module.exports = router;

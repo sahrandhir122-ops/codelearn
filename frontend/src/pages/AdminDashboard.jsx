@@ -7,7 +7,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import useAuthStore from "../store/useAuthStore";
-import { adminAPI, courseAPI, paymentAPI, uploadAPI, couponAPI } from "../api";
+import { adminAPI, courseAPI, paymentAPI, uploadAPI, couponAPI, supportAPI } from "../api";
 
 // ─── Design Tokens — Purple / Violet Theme ────────────────────────────────
 const T = {
@@ -1208,6 +1208,214 @@ function AnnouncementsPage({ notify }) {
   );
 }
 
+// ─── Support Inbox Page ────────────────────────────────────────────────────
+function SupportPage({ notify }) {
+  const [selectedId, setSelectedId] = useState(null);
+  const [replyText,  setReplyText]  = useState("");
+  const [sending,    setSending]    = useState(false);
+  const [filter,     setFilter]     = useState("all");
+  const qc = useQueryClient();
+
+  const { data: listData, isLoading: listLoading } = useQuery({
+    queryKey: ["support-tickets", filter],
+    queryFn: () => supportAPI.getAllTickets({ status: filter === "all" ? undefined : filter, limit: 50 })
+      .then(r => r.data),
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+  });
+
+  const { data: ticketData, isLoading: ticketLoading } = useQuery({
+    queryKey: ["support-ticket", selectedId],
+    queryFn: () => supportAPI.getTicketAdmin(selectedId).then(r => r.data.data.ticket),
+    enabled: !!selectedId,
+    staleTime: 10_000,
+  });
+
+  const tickets    = listData?.data?.tickets || [];
+  const unreadCount = listData?.unreadCount || 0;
+  const ticket     = ticketData;
+
+  const sendReply = async () => {
+    if (!replyText.trim() || sending) return;
+    setSending(true);
+    try {
+      await supportAPI.adminReply(selectedId, { message: replyText.trim() });
+      setReplyText("");
+      qc.invalidateQueries({ queryKey: ["support-ticket", selectedId] });
+      qc.invalidateQueries({ queryKey: ["support-tickets"] });
+      notify("Reply sent!", "success");
+    } catch { notify("Failed to send reply.", "error"); }
+    finally { setSending(false); }
+  };
+
+  const changeStatus = async (status) => {
+    try {
+      await supportAPI.updateStatus(selectedId, status);
+      qc.invalidateQueries({ queryKey: ["support-ticket", selectedId] });
+      qc.invalidateQueries({ queryKey: ["support-tickets"] });
+      notify(`Ticket marked as ${status.replace("_"," ")}.`, "success");
+    } catch { notify("Failed to update status.", "error"); }
+  };
+
+  const STATUS_COLOR = { open: T.amber, in_progress: "#3B82F6", resolved: T.green };
+  const STATUS_LABEL = { open: "Open", in_progress: "In Progress", resolved: "Resolved" };
+
+  const timeAgo = (date) => {
+    const s = Math.floor((Date.now() - new Date(date)) / 1000);
+    if (s < 60)    return "just now";
+    if (s < 3600)  return `${Math.floor(s/60)}m ago`;
+    if (s < 86400) return `${Math.floor(s/3600)}h ago`;
+    return new Date(date).toLocaleDateString("en-IN", { day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" });
+  };
+
+  return (
+    <div style={{ display:"flex", gap:16, height:"calc(100vh - 130px)", minHeight:500 }}>
+
+      {/* ── Left: ticket list ── */}
+      <div style={{ width:300, flexShrink:0, display:"flex", flexDirection:"column", gap:10 }}>
+        {/* Stats + filter */}
+        <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+          {["all","open","in_progress","resolved"].map(f => (
+            <button key={f} onClick={() => setFilter(f)}
+              style={{
+                padding:"5px 12px", borderRadius:8, fontSize:12, cursor:"pointer", fontWeight:600, border:"none",
+                background: filter === f ? T.primary : T.bgCard2,
+                color: filter === f ? "#fff" : T.textMuted,
+              }}>
+              {f === "all" ? `All ${unreadCount > 0 ? `(${unreadCount} new)` : ""}` : STATUS_LABEL[f]}
+            </button>
+          ))}
+        </div>
+
+        {/* Ticket list */}
+        <div style={{ flex:1, overflowY:"auto", display:"flex", flexDirection:"column", gap:6 }}>
+          {listLoading ? <p style={{ color:T.textMuted, fontSize:13, textAlign:"center", padding:20 }}>Loading…</p>
+          : tickets.length === 0 ? <p style={{ color:T.textDim, fontSize:13, textAlign:"center", padding:20 }}>No tickets yet.</p>
+          : tickets.map(t => {
+            const lastMsg = t.messages?.[t.messages.length-1];
+            const user    = t.user || { name: t.guestName || "Guest", email: t.guestEmail || "" };
+            const isNew   = !t.adminRead && t.status !== "resolved";
+            return (
+              <button key={t._id} onClick={() => setSelectedId(t._id)}
+                style={{
+                  textAlign:"left", padding:"10px 12px", borderRadius:12, cursor:"pointer", border:"none",
+                  background: selectedId === t._id ? `${T.primary}22` : T.bgCard,
+                  borderLeft: `3px solid ${selectedId === t._id ? T.primary : isNew ? T.amber : "transparent"}`,
+                  transition:"all 0.15s",
+                }}>
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:3 }}>
+                  <span style={{ fontSize:13, fontWeight:700, color:T.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:160 }}>
+                    {isNew && <span style={{ display:"inline-block", width:6, height:6, borderRadius:"50%", background:T.amber, marginRight:5, flexShrink:0, verticalAlign:"middle" }} />}
+                    {user.name}
+                  </span>
+                  <span style={{ fontSize:10, color:T.textMuted, flexShrink:0 }}>{timeAgo(t.lastMessageAt)}</span>
+                </div>
+                <div style={{ fontSize:11, color:T.textMuted, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", marginBottom:4 }}>
+                  {lastMsg?.content?.slice(0,60) || "No messages"}
+                </div>
+                <span style={{ fontSize:10, fontWeight:700, padding:"2px 8px", borderRadius:99, background:`${STATUS_COLOR[t.status]}18`, color:STATUS_COLOR[t.status] }}>
+                  {STATUS_LABEL[t.status]}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── Right: conversation ── */}
+      <div style={{ flex:1, display:"flex", flexDirection:"column", background:T.bgCard, borderRadius:16, border:`1px solid ${T.border}`, overflow:"hidden" }}>
+        {!selectedId ? (
+          <div style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:12 }}>
+            <div style={{ fontSize:48 }}>💬</div>
+            <p style={{ color:T.textMuted, fontSize:14 }}>Select a ticket to view the conversation</p>
+          </div>
+        ) : ticketLoading ? (
+          <div style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center" }}>
+            <p style={{ color:T.textMuted, fontSize:13 }}>Loading…</p>
+          </div>
+        ) : ticket && (
+          <>
+            {/* Ticket header */}
+            <div style={{ padding:"14px 18px", borderBottom:`1px solid ${T.border}`, display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0, flexWrap:"wrap", gap:8 }}>
+              <div>
+                <p style={{ fontSize:14, fontWeight:700, color:T.text, margin:0 }}>
+                  {ticket.user?.name || ticket.guestName || "Guest"}
+                </p>
+                <p style={{ fontSize:11, color:T.textMuted, margin:0 }}>
+                  {ticket.user?.email || ticket.guestEmail} · #{ticket._id.slice(-8).toUpperCase()}
+                </p>
+              </div>
+              <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                {["open","in_progress","resolved"].map(s => (
+                  <button key={s} onClick={() => changeStatus(s)}
+                    style={{
+                      padding:"4px 12px", borderRadius:8, fontSize:11, fontWeight:700, cursor:"pointer",
+                      border:`1px solid ${STATUS_COLOR[s]}40`,
+                      background: ticket.status === s ? `${STATUS_COLOR[s]}25` : "transparent",
+                      color: STATUS_COLOR[s],
+                    }}>
+                    {STATUS_LABEL[s]}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Messages */}
+            <div style={{ flex:1, overflowY:"auto", padding:"14px 18px", display:"flex", flexDirection:"column", gap:10 }}>
+              {(ticket.messages || []).map((m, i) => {
+                const isUser  = m.role === "user";
+                const isAdmin = m.role === "admin";
+                return (
+                  <div key={m._id || i} style={{ display:"flex", gap:8, justifyContent:isUser ? "flex-end" : "flex-start" }}>
+                    <div style={{ maxWidth:"72%" }}>
+                      <div style={{ fontSize:10, color:T.textMuted, marginBottom:3, textAlign:isUser ? "right" : "left" }}>
+                        {isAdmin ? `👤 ${m.adminName || "Support"}` : isUser ? "User" : "🤖 AI"}
+                        {" · "}{m.createdAt ? timeAgo(m.createdAt) : ""}
+                      </div>
+                      <div style={{
+                        padding:"9px 14px", borderRadius:12, fontSize:13, lineHeight:1.55,
+                        background: isUser ? `${T.primary}25` : isAdmin ? "rgba(99,102,241,0.15)" : T.bgCard2,
+                        color: T.text,
+                        border:`1px solid ${isUser ? T.primary+"30" : isAdmin ? "rgba(99,102,241,0.3)" : T.border}`,
+                      }}>
+                        {m.content}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Reply box */}
+            {ticket.status !== "resolved" ? (
+              <div style={{ padding:"12px 16px", borderTop:`1px solid ${T.border}`, display:"flex", gap:8, flexShrink:0 }}>
+                <textarea
+                  value={replyText}
+                  onChange={e => setReplyText(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendReply(); } }}
+                  placeholder="Type your reply… (Enter to send)"
+                  rows={2}
+                  style={{ flex:1, background:T.bgCard2, border:`1px solid ${T.border}`, color:T.text, borderRadius:10, padding:"10px 12px", fontSize:13, outline:"none", resize:"none", fontFamily:"inherit" }}
+                  onFocus={e => { e.currentTarget.style.borderColor = T.primary; }}
+                  onBlur={e => { e.currentTarget.style.borderColor = T.border; }}
+                />
+                <button onClick={sendReply} disabled={!replyText.trim() || sending}
+                  style={{ background:T.primary, color:"#fff", border:"none", borderRadius:10, padding:"0 18px", fontSize:13, fontWeight:700, cursor:replyText.trim() && !sending ? "pointer" : "not-allowed", opacity:replyText.trim() && !sending ? 1 : 0.5 }}>
+                  {sending ? "…" : "Send"}
+                </button>
+              </div>
+            ) : (
+              <div style={{ padding:"12px 16px", borderTop:`1px solid ${T.border}`, textAlign:"center", flexShrink:0 }}>
+                <span style={{ fontSize:12, color:T.green }}>✓ Ticket resolved</span>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Admin Dashboard ──────────────────────────────────────────────────
 export default function AdminDashboard() {
   const { user, logout } = useAuthStore();
@@ -1244,6 +1452,7 @@ export default function AdminDashboard() {
     { id: "coupons", icon: "🎟️", label: "Coupons" },
     { id: "reviews", icon: "⭐", label: "Reviews" },
     { id: "announcements", icon: "📢", label: "Announcements" },
+    { id: "support", icon: "💬", label: "Support" },
     { id: "settings", icon: "⚙️", label: "Settings" },
   ];
 
@@ -1252,6 +1461,7 @@ export default function AdminDashboard() {
     users: <UsersPage notify={notify} />, transactions: <TransactionsPage notify={notify} />,
     analytics: <AnalyticsPage />, coupons: <CouponsPage notify={notify} />,
     reviews: <ReviewsPage notify={notify} />, announcements: <AnnouncementsPage notify={notify} />,
+    support: <SupportPage notify={notify} />,
     settings: <SettingsPage notify={notify} />,
   };
 
@@ -1259,7 +1469,7 @@ export default function AdminDashboard() {
     dashboard: "Overview", courses: "Course Management", users: "User Management",
     transactions: "Payments & Transactions", analytics: "Revenue Analytics",
     coupons: "Coupons & Discounts", reviews: "Reviews Manager",
-    announcements: "Announcements", settings: "Settings",
+    announcements: "Announcements", support: "Support Inbox", settings: "Settings",
   };
 
   const notifColors = { success: T.green, error: T.red, info: T.primary };

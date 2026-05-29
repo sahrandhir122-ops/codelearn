@@ -123,9 +123,15 @@ export const adminAPI = {
   revokeCourseAccess: (id, courseId)   => api.delete(`/admin/users/${id}/revoke-access/${courseId}`),
 };
 
-// ── Support (AI chat) ──────────────────────────────────────────────────────
+// ── Support (AI chat + tickets) ───────────────────────────────────────────
 export const supportAPI = {
-  chat: (data) => api.post("/support/chat", data),
+  chat:          (data)       => api.post("/support/chat", data),
+  getTicket:     (id)         => api.get(`/support/ticket/${id}`),
+  // Admin
+  getAllTickets:  (params)     => api.get("/support/admin/tickets", { params }),
+  getTicketAdmin:(id)         => api.get(`/support/admin/tickets/${id}`),
+  adminReply:    (id, data)   => api.post(`/support/admin/tickets/${id}/reply`, data),
+  updateStatus:  (id, status) => api.patch(`/support/admin/tickets/${id}/status`, { status }),
 };
 
 // ── Coupons ────────────────────────────────────────────────────────────────
