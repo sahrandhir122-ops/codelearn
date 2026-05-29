@@ -10,9 +10,13 @@ import Loader from "../components/Loader";
 import PaymentModal from "../components/PaymentModal";
 
 const fmtDuration = (s) => {
+  if (!s || s <= 0) return null;
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);
-  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+  const sec = s % 60;
+  if (h > 0) return `${h}h ${m > 0 ? m + "m" : ""}`.trim();
+  if (m > 0) return `${m}m ${sec > 0 ? sec + "s" : ""}`.trim();
+  return `${sec}s`;
 };
 
 // ── Static star display ───────────────────────────────────────────────────────
@@ -671,7 +675,7 @@ export default function CourseDetailPage() {
                               </span>
 
                               {/* Duration */}
-                              {lec.duration > 0 && (
+                              {fmtDuration(lec.duration) && (
                                 <span className="text-xs text-white/30 flex-shrink-0">
                                   {fmtDuration(lec.duration)}
                                 </span>

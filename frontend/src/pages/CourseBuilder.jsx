@@ -166,7 +166,9 @@ function VideoUploader({ onUploaded, existingUrl }) {
       setProgress(100);
       setPhase("done");
       setChunkInfo("");
-      onUploaded(lastResult.secure_url, Math.round(file.size / 1024 / 1024));
+      // Cloudinary returns duration in seconds for video uploads
+      const detectedDuration = lastResult.duration ? Math.round(lastResult.duration) : 0;
+      onUploaded(lastResult.secure_url, detectedDuration);
       toast.success("✅ Video uploaded successfully!");
     } catch (err) {
       setPhase("idle");
@@ -366,7 +368,11 @@ function LectureModal({ lecture, sectionId, courseId, onClose, onSaved }) {
             {videoMode === "upload" ? (
               <div>
                 <VideoUploader
-                  onUploaded={(url) => setForm(p => ({ ...p, videoUrl: url }))}
+                  onUploaded={(url, duration) => setForm(p => ({
+                    ...p,
+                    videoUrl: url,
+                    ...(duration > 0 ? { duration } : {}),
+                  }))}
                   existingUrl={form.videoUrl?.includes("cloudinary.com") ? form.videoUrl : null}
                 />
                 {form.videoUrl && form.videoUrl.includes("cloudinary.com") && (
@@ -495,8 +501,16 @@ function LectureModal({ lecture, sectionId, courseId, onClose, onSaved }) {
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
-              <label style={{ fontSize: 12, color: T.textMuted, display: "block", marginBottom: 6 }}>Duration (seconds)</label>
+              <label style={{ fontSize: 12, color: T.textMuted, display: "block", marginBottom: 6 }}>
+                Duration (seconds)
+                {form.duration > 0 && (
+                  <span style={{ marginLeft: 6, fontSize: 10, color: T.green }}>
+                    ✓ {Math.floor(form.duration / 60)}m {form.duration % 60 > 0 ? (form.duration % 60) + "s" : ""}
+                  </span>
+                )}
+              </label>
               <input type="number" value={form.duration} onChange={(e) => setForm(p => ({ ...p, duration: Number(e.target.value) }))} min={0}
+                placeholder="Auto-filled when uploading from computer"
                 style={{ width: "100%", background: T.bgCard2, border: `1px solid ${T.border}`, color: T.text, padding: "10px 14px", borderRadius: 10, fontSize: 14, outline: "none", boxSizing: "border-box" }} />
             </div>
             <div style={{ display: "flex", alignItems: "flex-end", paddingBottom: 2 }}>
