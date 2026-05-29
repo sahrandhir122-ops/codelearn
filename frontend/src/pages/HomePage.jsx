@@ -262,6 +262,60 @@ export default function HomePage() {
         </div>
       </div>
 
+      {/* ── Why CodeLearn ── */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 py-16">
+        <div className="text-center mb-12">
+          <p className="text-xs font-bold text-primary uppercase tracking-[0.2em] mb-3">Why 1.5L+ students choose us</p>
+          <h2 className="font-display font-black text-3xl sm:text-4xl mb-3">Everything you need to<br className="hidden sm:block" /> <span className="gradient-text">succeed in tech</span></h2>
+          <p className="text-white/40 text-base max-w-xl mx-auto">We're not just another online platform — we're built specifically for Indian learners.</p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[
+            { icon: "🎬", color: "#E8471A", title: "HD Video Lessons", body: "Crystal-clear, professionally produced lectures you can watch offline on any device." },
+            { icon: "🧑‍💻", color: "#3B82F6", title: "Real Projects",    body: "Build portfolio projects used in actual job interviews — not toy examples." },
+            { icon: "🏆", color: "#F5B731", title: "Certificates",    body: "Earn certificates recognized by 500+ top hiring companies across India." },
+            { icon: "💬", color: "#10B981", title: "Community",       body: "24/7 doubt support, peer groups, and live sessions with instructors." },
+          ].map((f) => (
+            <div key={f.title} className="rounded-2xl p-6 group transition-all duration-300 hover:-translate-y-1"
+              style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = `${f.color}35`; e.currentTarget.style.background = `${f.color}08`; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)"; e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}>
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl mb-4 transition-transform duration-300 group-hover:scale-110"
+                style={{ background: `${f.color}18`, border: `1px solid ${f.color}30` }}>
+                {f.icon}
+              </div>
+              <h3 className="font-display font-bold text-base text-white mb-2">{f.title}</h3>
+              <p className="text-white/45 text-sm leading-relaxed">{f.body}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* How it works */}
+        <div className="mt-16">
+          <p className="text-center text-xs font-bold text-white/30 uppercase tracking-[0.2em] mb-8">How it works</p>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 relative">
+            {/* Connector line (desktop only) */}
+            <div className="hidden lg:block absolute top-8 left-[12.5%] right-[12.5%] h-px" style={{ background: "linear-gradient(90deg, transparent 0%, rgba(232,71,26,0.3) 20%, rgba(232,71,26,0.3) 80%, transparent 100%)" }} />
+            {[
+              { step: "01", icon: "🎯", label: "Pick a course" },
+              { step: "02", icon: "📺", label: "Watch & practice" },
+              { step: "03", icon: "🛠️", label: "Build real projects" },
+              { step: "04", icon: "💼", label: "Get hired" },
+            ].map((s) => (
+              <div key={s.step} className="flex flex-col items-center text-center relative z-10">
+                <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl mb-3"
+                  style={{ background: "rgba(232,71,26,0.12)", border: "2px solid rgba(232,71,26,0.25)" }}>
+                  {s.icon}
+                </div>
+                <p className="text-[10px] font-black text-primary tracking-widest mb-1">{s.step}</p>
+                <p className="text-white/70 text-sm font-semibold">{s.label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ── Featured Courses ── */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 py-16">
         <div className="flex items-center justify-between mb-8">

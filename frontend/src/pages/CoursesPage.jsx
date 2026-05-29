@@ -53,66 +53,49 @@ export default function CoursesPage() {
   const hasFilters = category || level || search;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12 animate-fade-in">
-      {/* Header */}
-      <div className="mb-10">
-        <h1 className="font-display font-black text-4xl mb-2">All Courses</h1>
-        <p className="text-white/40">
-          {isLoading ? "Loading…" : `${total} expert-led courses`}
-        </p>
+    <div className="animate-fade-in">
+
+      {/* ── Hero banner ── */}
+      <div className="relative overflow-hidden py-14 px-4"
+        style={{ background: "linear-gradient(135deg, #0f0500 0%, #1a0800 40%, #0a0a14 100%)" }}>
+        {/* Glow */}
+        <div className="absolute pointer-events-none" style={{ top: "-20%", left: "30%", width: 500, height: 400, borderRadius: "50%", background: "radial-gradient(circle, rgba(232,71,26,0.18) 0%, transparent 70%)", filter: "blur(80px)" }} />
+        <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,0.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.02) 1px,transparent 1px)", backgroundSize: "50px 50px" }} />
+
+        <div className="relative z-10 max-w-7xl mx-auto">
+          <p className="text-xs font-bold text-primary uppercase tracking-[0.2em] mb-3">Browse & Learn</p>
+          <h1 className="font-display font-black text-4xl sm:text-5xl mb-3">
+            All Courses <span className="gradient-text">({isLoading ? "…" : total})</span>
+          </h1>
+          <p className="text-white/45 text-base mb-8 max-w-lg">
+            Expert-led courses in Python, Web Dev, ML, DevOps and more — built for India's next generation of developers.
+          </p>
+
+          {/* Integrated search */}
+          <div className="flex flex-col sm:flex-row gap-3 max-w-2xl">
+            <div className="relative flex-1">
+              <svg className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <input
+                className="w-full pl-11 pr-4 py-3.5 rounded-xl text-sm text-white placeholder:text-white/35 outline-none transition-all"
+                style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)" }}
+                placeholder="Search by title, instructor, or topic…"
+                value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(232,71,26,0.5)"; e.currentTarget.style.background = "rgba(255,255,255,0.1)"; }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)"; e.currentTarget.style.background = "rgba(255,255,255,0.07)"; }}
+              />
+            </div>
+            <select value={sort} onChange={(e) => { setSort(e.target.value); setPage(1); }}
+              className="py-3.5 px-4 rounded-xl text-sm text-white/80 outline-none cursor-pointer sm:w-48"
+              style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)" }}>
+              {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value} style={{ background: "#111118" }}>{o.label}</option>)}
+            </select>
+          </div>
+        </div>
       </div>
 
-      {/* Search + Sort bar */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-8">
-        {/* Search with button */}
-        <div className="flex flex-1 gap-2">
-          <div className="relative flex-1">
-            <svg
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none"
-              width="15" height="15" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" strokeWidth={2.5}
-            >
-              <circle cx="11" cy="11" r="8" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-            <input
-              className="input pl-9 w-full"
-              placeholder="Search by title, instructor, or topic…"
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              onKeyDown={(e) => { if (e.key === "Enter") setPage(1); }}
-            />
-            {search && (
-              <button
-                onClick={() => { setSearch(""); setPage(1); }}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors"
-              >
-                ✕
-              </button>
-            )}
-          </div>
-          <button
-            onClick={() => setPage(1)}
-            className="btn-primary px-5 py-2.5 text-sm flex-shrink-0 flex items-center gap-1.5"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
-              <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-            Search
-          </button>
-        </div>
-        <select
-          className="input sm:w-52 cursor-pointer"
-          value={sort}
-          onChange={(e) => { setSort(e.target.value); setPage(1); }}
-        >
-          {SORT_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value} style={{ background: "#111118" }}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-      </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
 
       {/* Mobile filter pills — full width above the grid */}
       <div className="lg:hidden flex gap-2 flex-wrap mb-5 overflow-x-auto pb-1">
@@ -236,6 +219,7 @@ export default function CoursesPage() {
           )}
         </div>
       </div>
+    </div>
     </div>
   );
 }
