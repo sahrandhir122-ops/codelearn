@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis,
@@ -8,6 +8,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import useAuthStore from "../store/useAuthStore";
 import { adminAPI, courseAPI, paymentAPI, uploadAPI, couponAPI, supportAPI } from "../api";
+import { io as socketIO } from "socket.io-client";
 
 // ─── Design Tokens — Purple / Violet Theme ────────────────────────────────
 const T = {
@@ -1208,20 +1209,64 @@ function AnnouncementsPage({ notify }) {
   );
 }
 
+// Socket URL helper (same as SupportChat)
+const SOCKET_URL = (import.meta.env.VITE_API_URL || "http://localhost:5000/api")
+  .replace(/\/api\/?$/, "");
+
 // ─── Support Inbox Page ────────────────────────────────────────────────────
 function SupportPage({ notify }) {
-  const [selectedId, setSelectedId] = useState(null);
-  const [replyText,  setReplyText]  = useState("");
-  const [sending,    setSending]    = useState(false);
-  const [filter,     setFilter]     = useState("all");
+  const [selectedId,   setSelectedId]   = useState(null);
+  const [replyText,    setReplyText]    = useState("");
+  const [sending,      setSending]      = useState(false);
+  const [filter,       setFilter]       = useState("all");
+  const [liveMessages, setLiveMessages] = useState({});  // ticketId → extra messages from socket
+  const [newTicketIds, setNewTicketIds] = useState(new Set()); // unread dot
+  const socketRef = useRef(null);
+  const msgsEndRef = useRef(null);
   const qc = useQueryClient();
+
+  // ── Socket.io ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    const socket = socketIO(SOCKET_URL, { transports: ["websocket", "polling"] });
+    socketRef.current = socket;
+    socket.emit("join:admin");
+
+    // New message arrived in any ticket
+    socket.on("ticket:update", ({ ticketId, messages: newMsgs }) => {
+      // If this ticket is currently open, append messages live
+      setLiveMessages(prev => {
+        const existing = prev[ticketId] || [];
+        const existingIds = new Set(existing.map(m => m._id?.toString()));
+        const fresh = (newMsgs || []).filter(m => !existingIds.has(m._id?.toString()));
+        if (!fresh.length) return prev;
+        return { ...prev, [ticketId]: [...existing, ...fresh] };
+      });
+      // Mark as new in list
+      setNewTicketIds(prev => new Set([...prev, ticketId]));
+      // Refresh list
+      qc.invalidateQueries({ queryKey: ["support-tickets"] });
+    });
+
+    return () => socket.disconnect();
+  }, []);
+
+  // Clear new indicator when ticket is selected
+  useEffect(() => {
+    if (selectedId) {
+      setNewTicketIds(prev => { const s = new Set(prev); s.delete(selectedId); return s; });
+      setLiveMessages(prev => ({ ...prev, [selectedId]: [] }));
+    }
+  }, [selectedId]);
+
+  // Auto-scroll when live messages arrive
+  useEffect(() => { msgsEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [liveMessages]);
 
   const { data: listData, isLoading: listLoading, refetch: refetchList } = useQuery({
     queryKey: ["support-tickets", filter],
     queryFn: () => supportAPI.getAllTickets({ status: filter === "all" ? undefined : filter, limit: 50 })
       .then(r => r.data),
     staleTime: 0,
-    refetchInterval: 15_000,
+    refetchInterval: 30_000,
   });
 
   const { data: ticketData, isLoading: ticketLoading } = useQuery({
@@ -1229,24 +1274,32 @@ function SupportPage({ notify }) {
     queryFn: () => supportAPI.getTicketAdmin(selectedId).then(r => r.data.data.ticket),
     enabled: !!selectedId,
     staleTime: 0,
-    refetchInterval: 15_000,
   });
 
-  const tickets    = listData?.data?.tickets || [];
+  const tickets     = listData?.data?.tickets || [];
   const unreadCount = listData?.unreadCount || 0;
-  const ticket     = ticketData;
+  const ticket      = ticketData;
+
+  // Combine persisted messages with live socket messages
+  const allMessages = ticket
+    ? [...(ticket.messages || []), ...(liveMessages[selectedId] || [])]
+        .filter((m, i, arr) => arr.findIndex(x => x._id?.toString() === m._id?.toString() && m._id) === i)
+    : [];
 
   const sendReply = async () => {
     if (!replyText.trim() || sending) return;
     setSending(true);
+    const text = replyText.trim();
+    setReplyText("");
     try {
-      await supportAPI.adminReply(selectedId, { message: replyText.trim() });
-      setReplyText("");
+      await supportAPI.adminReply(selectedId, { message: text });
+      // Socket will push the message live; also refresh to sync
       qc.invalidateQueries({ queryKey: ["support-ticket", selectedId] });
       qc.invalidateQueries({ queryKey: ["support-tickets"] });
-      notify("Reply sent!", "success");
-    } catch { notify("Failed to send reply.", "error"); }
-    finally { setSending(false); }
+    } catch {
+      setReplyText(text);
+      notify("Failed to send reply.", "error");
+    } finally { setSending(false); }
   };
 
   const changeStatus = async (status) => {
@@ -1301,7 +1354,7 @@ function SupportPage({ notify }) {
           : tickets.map(t => {
             const lastMsg = t.messages?.[t.messages.length-1];
             const user    = t.user || { name: t.guestName || "Guest", email: t.guestEmail || "" };
-            const isNew   = !t.adminRead && t.status !== "resolved";
+            const isNew   = !t.adminRead || newTicketIds.has(t._id);
             return (
               <button key={t._id} onClick={() => setSelectedId(t._id)}
                 style={{
@@ -1369,7 +1422,7 @@ function SupportPage({ notify }) {
 
             {/* Messages */}
             <div style={{ flex:1, overflowY:"auto", padding:"14px 18px", display:"flex", flexDirection:"column", gap:10 }}>
-              {(ticket.messages || []).map((m, i) => {
+              {allMessages.map((m, i) => {
                 const isUser  = m.role === "user";
                 const isAdmin = m.role === "admin";
                 return (
@@ -1377,7 +1430,7 @@ function SupportPage({ notify }) {
                     <div style={{ maxWidth:"72%" }}>
                       <div style={{ fontSize:10, color:T.textMuted, marginBottom:3, textAlign:isUser ? "right" : "left" }}>
                         {isAdmin ? `👤 ${m.adminName || "Support"}` : isUser ? "User" : "🤖 AI"}
-                        {" · "}{m.createdAt ? timeAgo(m.createdAt) : ""}
+                        {" · "}{m.createdAt ? timeAgo(m.createdAt) : "just now"}
                       </div>
                       <div style={{
                         padding:"9px 14px", borderRadius:12, fontSize:13, lineHeight:1.55,
@@ -1391,24 +1444,25 @@ function SupportPage({ notify }) {
                   </div>
                 );
               })}
+              <div ref={msgsEndRef} />
             </div>
 
             {/* Reply box */}
             {ticket.status !== "resolved" ? (
-              <div style={{ padding:"12px 16px", borderTop:`1px solid ${T.border}`, display:"flex", gap:8, flexShrink:0 }}>
+              <div style={{ padding:"12px 16px", borderTop:`1px solid ${T.border}`, display:"flex", gap:8, flexShrink:0, alignItems:"flex-end" }}>
                 <textarea
                   value={replyText}
                   onChange={e => setReplyText(e.target.value)}
                   onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendReply(); } }}
-                  placeholder="Type your reply… (Enter to send)"
+                  placeholder="Type reply… Enter to send"
                   rows={2}
                   style={{ flex:1, background:T.bgCard2, border:`1px solid ${T.border}`, color:T.text, borderRadius:10, padding:"10px 12px", fontSize:13, outline:"none", resize:"none", fontFamily:"inherit" }}
                   onFocus={e => { e.currentTarget.style.borderColor = T.primary; }}
                   onBlur={e => { e.currentTarget.style.borderColor = T.border; }}
                 />
                 <button onClick={sendReply} disabled={!replyText.trim() || sending}
-                  style={{ background:T.primary, color:"#fff", border:"none", borderRadius:10, padding:"0 18px", fontSize:13, fontWeight:700, cursor:replyText.trim() && !sending ? "pointer" : "not-allowed", opacity:replyText.trim() && !sending ? 1 : 0.5 }}>
-                  {sending ? "…" : "Send"}
+                  style={{ background:T.primary, color:"#fff", border:"none", borderRadius:10, padding:"10px 18px", fontSize:13, fontWeight:700, cursor:replyText.trim() && !sending ? "pointer" : "not-allowed", opacity:replyText.trim() && !sending ? 1 : 0.5, flexShrink:0 }}>
+                  {sending ? "…" : "Send ↑"}
                 </button>
               </div>
             ) : (

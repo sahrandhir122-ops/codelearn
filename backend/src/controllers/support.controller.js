@@ -76,6 +76,23 @@ exports.chat = async (req, res, next) => {
   }
 
   await ticket.save();
+  await ticket.populate("user", "name email avatar");
+
+  const io = req.app.get("io");
+  if (io) {
+    const newMsgs = ticket.messages.slice(-(aiReply ? 2 : 1));
+    // Push new messages to user's ticket room (in case they have another tab open)
+    io.to(`ticket:${ticket._id}`).emit("messages:new", {
+      ticketId: ticket._id.toString(),
+      messages: newMsgs,
+    });
+    // Notify admin room — show ticket in inbox + update open ticket if selected
+    io.to("admin").emit("ticket:update", {
+      ticketId: ticket._id.toString(),
+      ticket,
+      messages: newMsgs,
+    });
+  }
 
   res.json({
     status: "success",
@@ -134,17 +151,33 @@ exports.adminReply = async (req, res, next) => {
   const ticket = await SupportTicket.findById(req.params.id);
   if (!ticket) return next(new AppError("Ticket not found.", 404));
 
-  ticket.messages.push({
+  const adminMsg = {
     role:      "admin",
     content:   message.trim(),
     isAI:      false,
     adminName: req.user?.name || "Support Team",
-  });
+    createdAt: new Date(),
+  };
+  ticket.messages.push(adminMsg);
   ticket.status        = "in_progress";
   ticket.lastMessageAt = new Date();
   await ticket.save();
 
   const populated = await ticket.populate("user", "name email avatar");
+
+  // ── Real-time: push reply to user's ticket room ──────────────────────────
+  const io = req.app.get("io");
+  if (io) {
+    io.to(`ticket:${ticket._id}`).emit("messages:new", {
+      ticketId: ticket._id.toString(),
+      messages: [ticket.messages[ticket.messages.length - 1]],
+    });
+    io.to("admin").emit("ticket:update", {
+      ticketId: ticket._id.toString(),
+      ticket: populated,
+    });
+  }
+
   res.json({ status: "success", data: { ticket: populated } });
 };
 

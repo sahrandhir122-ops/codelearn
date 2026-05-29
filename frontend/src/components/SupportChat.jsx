@@ -1,7 +1,12 @@
 import { useState, useRef, useEffect } from "react";
 import { useLocation } from "react-router-dom";
+import { io } from "socket.io-client";
 import { supportAPI } from "../api";
 import useAuthStore from "../store/useAuthStore";
+
+// Strip /api suffix from VITE_API_URL to get the socket server root
+const SOCKET_URL = (import.meta.env.VITE_API_URL || "http://localhost:5000/api")
+  .replace(/\/api\/?$/, "");
 
 const STORAGE_KEY      = "cl_support_ticket";
 const PROACTIVE_KEY    = "cl_support_proactive_shown"; // don't show again after dismissed
@@ -75,8 +80,31 @@ export default function SupportChat() {
   const [proactive,   setProactive]   = useState(null);  // { text, visible }
   const proactiveRef  = useRef(null);
 
-  const bottomRef = useRef(null);
-  const inputRef  = useRef(null);
+  const bottomRef  = useRef(null);
+  const inputRef   = useRef(null);
+  const socketRef  = useRef(null);
+
+  // ── Socket.io — real-time messages ────────────────────────────────────────
+  useEffect(() => {
+    const socket = io(SOCKET_URL, { transports: ["websocket", "polling"] });
+    socketRef.current = socket;
+
+    if (ticketId) socket.emit("join:ticket", ticketId);
+
+    // When admin sends a reply → append it instantly without API refetch
+    socket.on("messages:new", ({ ticketId: tid, messages: newMsgs }) => {
+      if (tid !== ticketId) return;
+      setMessages(prev => {
+        const existingIds = new Set(prev.map(m => m._id?.toString()).filter(Boolean));
+        const fresh = newMsgs.filter(m => !existingIds.has(m._id?.toString()));
+        if (!fresh.length) return prev;
+        setUnread(n => open ? n : n + fresh.length);
+        return [...prev, ...fresh];
+      });
+    });
+
+    return () => socket.disconnect();
+  }, [ticketId]);
 
   // ── Proactive message logic ─────────────────────────────────────────────
   useEffect(() => {
