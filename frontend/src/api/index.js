@@ -123,6 +123,11 @@ export const adminAPI = {
   revokeCourseAccess: (id, courseId)   => api.delete(`/admin/users/${id}/revoke-access/${courseId}`),
 };
 
+// ── Support (AI chat) ──────────────────────────────────────────────────────
+export const supportAPI = {
+  chat: (data) => api.post("/support/chat", data),
+};
+
 // ── Coupons ────────────────────────────────────────────────────────────────
 export const couponAPI = {
   getAll:   ()          => api.get("/coupons"),

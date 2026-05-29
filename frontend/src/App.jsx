@@ -25,6 +25,7 @@ import WishlistPage from "./pages/WishlistPage";
 // Layout
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
+import SupportChat from "./components/SupportChat";
 
 // Protected route wrappers
 const ProtectedRoute = ({ children }) => {
@@ -114,6 +115,7 @@ export default function App() {
             </Routes>
           </main>
           <Footer />
+          <SupportChat />
         </div>
       } />
     </Routes>

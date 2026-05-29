@@ -26,6 +26,7 @@ const adminRoutes   = require("./routes/admin.routes");
 const couponRoutes  = require("./routes/coupon.routes");
 const uploadRoutes  = require("./routes/upload.routes");
 const videoRoutes   = require("./routes/video.routes");
+const supportRoutes = require("./routes/support.routes");
 
 // Passport config
 require("./config/passport");
@@ -104,6 +105,7 @@ app.use("/api/admin",    adminRoutes);
 app.use("/api/coupons",  couponRoutes);
 app.use("/api/upload",   uploadRoutes);
 app.use("/api/videos",  videoRoutes);
+app.use("/api/support", supportRoutes);
 
 // ── Error handling ─────────────────────────────────────────────────────────
 app.use(notFound);
